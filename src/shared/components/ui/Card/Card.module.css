@@ -1,0 +1,17 @@
+.root {
+  background: var(--color-white, #ffffff);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: var(--shadow-md, 0 3px 15px rgba(0, 0, 0, 0.06));
+}
+
+.paddingSm {
+  padding: 12px;
+}
+
+.paddingMd {
+  padding: 16px;
+}
+
+.paddingLg {
+  padding: 20px;
+}

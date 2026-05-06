@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { InfoCircle, LockFill, Clock, StarFill } from 'react-bootstrap-icons';
 import { C } from './constants';
+import { UIButton } from '../../../shared/components/ui';
 
 export const Badge = ({ color, children }) => (
   <span style={{
@@ -56,7 +57,9 @@ export const ApprovalBanner = ({ user }) => {
         <div style={{ fontSize: '13px', lineHeight: '1.6', opacity: 0.9 }}>
           {isRejected 
             ? `نعتذر، لم يتم تفعيل حسابك. السبب: ${reason || 'يرجى التواصل مع الإدارة لمزيد من التفاصيل.'}`
-            : 'لقد استلمنا طلب اشتراكك في الباقة المدفوعة. يتم حالياً مراجعة البيانات من قبل الإدارة وسوف يتم تفعيل حسابك بالكامل فور التأكد من عملية الدفع.'
+            : user?.plan === 'trial' || !user?.plan
+              ? 'لقد استلمنا طلب اشتراكك في الباقة المجانية. يتم حالياً مراجعة بياناتك من قبل الإدارة وسوف يتم تفعيل حسابك قريباً.'
+              : `لقد استلمنا طلب اشتراكك في الباقة ${user?.plan === 'bronze' ? 'البرونزية' : user?.plan === 'silver' ? 'الفضية' : user?.plan === 'gold' ? 'الذهبية' : 'المدفوعة'}. يتم حالياً مراجعة البيانات من قبل الإدارة وسوف يتم تفعيل حسابك بالكامل فور التأكد من عملية الدفع.`
           }
           <br/>
           <small style={{ color: isRejected ? C.white : C.goldLight }}>
@@ -155,7 +158,7 @@ export const PaymentReminderBanner = ({ setPage }) => (
         يرجى إضافة أرقام محافظك الإلكترونية (جيب، الكريمي، إلخ) ليتمكن العملاء من الدفع لك مباشرة.
       </div>
     </div>
-    <button 
+    <UIButton 
       onClick={() => setPage('profile')}
       style={{
         background: C.gold, color: C.sidebar, padding: '8px 16px',
@@ -163,7 +166,7 @@ export const PaymentReminderBanner = ({ setPage }) => (
       }}
     >
       إضافة الآن
-    </button>
+    </UIButton>
   </div>
 );
 export const AddressReminderBanner = ({ setPage }) => (
@@ -185,7 +188,7 @@ export const AddressReminderBanner = ({ setPage }) => (
         يرجى إضافة عنوان المتجر وتحديد موقعه على الخريطة ليتمكن العملاء من الوصول إليك واستلام طلباتهم.
       </div>
     </div>
-    <button 
+    <UIButton 
       onClick={() => setPage('profile')}
       style={{
         background: C.gold, color: C.sidebar, padding: '8px 16px',
@@ -193,6 +196,6 @@ export const AddressReminderBanner = ({ setPage }) => (
       }}
     >
       إعداد الآن
-    </button>
+    </UIButton>
   </div>
 );

@@ -12,13 +12,12 @@ const AnimatedWrapper = () => {
   const location = useLocation();
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, [location.pathname]);
 
   return (
     <div
-      key={location.pathname}
-      style={{ flex: 1, animation: 'simpleFadeIn 0.25s ease' }}
+      style={{ flex: 1, animation: 'simpleFadeIn 0.18s ease', display: 'flex', flexDirection: 'column' }}
     >
       <AppRouter />
     </div>
@@ -67,14 +66,17 @@ const AppContent = () => {
     location.pathname.startsWith('/track-order') ||
     location.pathname === '/orders';
 
-  const hideHeaderOnly = location.pathname === '/stores';
+  const hideHeaderOnly =
+    location.pathname === '/stores' ||
+    location.pathname.startsWith('/category/') ||
+    location.pathname === '/offers';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative', overflowX: 'hidden' }}>
       <style>{`
         @keyframes simpleFadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
+          from { opacity: 0.92; }
+          to   { opacity: 1; }
         }
         @keyframes toastFadeIn {
           from { opacity: 0; transform: translate(-50%, -20px); }

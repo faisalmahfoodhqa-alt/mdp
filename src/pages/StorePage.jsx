@@ -1,150 +1,21 @@
 // src/pages/StorePage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import Header from '../components/layout/Header';
-import Footer from '../components/layout/Footer';
 import ProductCard from '../components/products/ProductCard';
 import {
-  Shop, GeoAlt, Telephone, Envelope, Search,
-  Grid3x2Gap, ListUl, BoxSeam, Eye, XCircle, Whatsapp,
-  Facebook, Instagram, Tiktok, ClockFill, Share, ArrowRight
+  Shop, GeoAlt, Search, Grid3x2Gap, ListUl, ArrowRight,
+  Facebook, Instagram, Tiktok, Whatsapp, HouseDoor, TagFill,
+  ChevronLeft, ChevronRight, Fire, StarFill, Clock, ChevronDown
 } from 'react-bootstrap-icons';
-import { CATEGORY_MAP } from '../components/dashboard/seller/constants';
-import { Fire } from 'react-bootstrap-icons'; 
+import { UIButton } from '../shared/components/ui';
 
 const C = {
   primary: '#0a1a3a', gold: '#c88c23', goldLight: '#e5a847',
-  white: '#ffffff', bg: '#f0f2f7', card: '#ffffff',
+  white: '#ffffff', bg: '#f4f6fa', card: '#ffffff',
   green: '#27ae60', gray: '#6c757d', border: '#e8ecf0',
-  text: '#1a2a4a', textLight: '#8896a5', red: '#e74c3c'
+  text: '#1a2a4a', red: '#e74c3c'
 };
 
-// ========== نافذة تفاصيل المنتج ==========
-const ProductModal = ({ product, seller, onClose }) => (
-  <div style={{
-    position: 'fixed', inset: 0, zIndex: 9999,
-    background: 'rgba(0,0,0,0.65)', display: 'flex',
-    alignItems: 'center', justifyContent: 'center',
-    padding: '20px', direction: 'rtl'
-  }} onClick={onClose}>
-    <div style={{
-      background: C.white, borderRadius: '20px', maxWidth: '600px',
-      width: '100%', maxHeight: '90vh', overflowY: 'auto',
-      boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-    }} onClick={e => e.stopPropagation()}>
-
-      {product.images?.length > 0 && (
-        <div style={{ position: 'relative' }}>
-          <img src={product.images[0].url} alt={product.name} style={{
-            width: '100%', height: '280px', objectFit: 'cover',
-            borderRadius: '20px 20px 0 0',
-            opacity: seller?.isVacationMode ? 0.7 : 1
-          }} />
-          <button onClick={onClose} style={{
-            position: 'absolute', top: '12px', left: '12px',
-            background: 'rgba(0,0,0,0.5)', border: 'none',
-            borderRadius: '50%', width: '36px', height: '36px',
-            color: C.white, cursor: 'pointer', fontSize: '18px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>✕</button>
-          
-          {product.isOffer && (
-            <div style={{ position: 'absolute', top: '15px', right: '15px', background: C.red, color: 'white', padding: '5px 15px', borderRadius: '50px', fontWeight: 'bold', fontSize: '14px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}>عرض اليوم 🔥</div>
-          )}
-
-          {product.images.length > 1 && (
-            <div style={{ display: 'flex', gap: '8px', padding: '12px', background: C.bg }}>
-              {product.images.map((img, i) => (
-                <img key={i} src={img.url} alt="" style={{
-                  width: '60px', height: '60px', objectFit: 'cover',
-                  borderRadius: '8px', border: `2px solid ${C.gold}30`
-                }} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div style={{ padding: '24px' }}>
-        {!product.images?.length && (
-          <button onClick={onClose} style={{
-            float: 'left', background: 'none', border: 'none',
-            fontSize: '22px', cursor: 'pointer', color: C.gray
-          }}>✕</button>
-        )}
-        {product.category && (
-          <div style={{
-            display: 'inline-block', background: `${C.gold}15`, color: C.gold,
-            fontSize: '11px', padding: '3px 10px', borderRadius: '20px',
-            marginBottom: '10px', fontWeight: '700'
-          }}>{product.category}</div>
-        )}
-        <h2 style={{ color: C.primary, marginBottom: '10px', fontSize: '22px' }}>{product.name}</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '16px' }}>
-          <div style={{ color: C.gold, fontWeight: '800', fontSize: '26px' }}>
-            {Number(product.price).toLocaleString()} ﷼
-          </div>
-          {product.originalPrice && (
-            <div style={{ color: C.textLight, fontSize: '16px', textDecoration: 'line-through' }}>
-              {Number(product.originalPrice).toLocaleString()} ﷼
-            </div>
-          )}
-        </div>
-        {product.description && (
-          <p style={{ color: C.gray, lineHeight: '1.7', marginBottom: '20px', fontSize: '14px' }}>
-            {product.description}
-          </p>
-        )}
-
-        {seller && (
-          <div style={{
-            background: seller.isVacationMode ? `${C.red}05` : C.bg, 
-            borderRadius: '14px', padding: '16px', border: `1px solid ${seller.isVacationMode ? C.red + '20' : C.border}`
-          }}>
-            {seller.isVacationMode ? (
-              <div style={{ textAlign: 'center', padding: '10px' }}>
-                <ClockFill size={30} color={C.red} style={{ marginBottom: '10px' }} />
-                <div style={{ color: C.red, fontWeight: '800', fontSize: '16px' }}>المتجر في إجازة حالياً</div>
-                <p style={{ fontSize: '13px', color: C.gray, marginTop: '5px' }}>نعتذر، لا يمكن استقبال الطلبات في الوقت الحالي.</p>
-              </div>
-            ) : (
-              <>
-                <div style={{ fontWeight: '700', color: C.primary, marginBottom: '15px', fontSize: '14px' }}>
-                  📞 اطلب الآن عبر الواتساب:
-                </div>
-                
-                <a 
-                  href={`https://wa.me/${seller.phone}?text=${encodeURIComponent(`السلام عليكم، أريد شراء منتج: ${product.name}\nمن متجر: ${seller.storeName}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                    background: '#25D366', color: C.white, textDecoration: 'none',
-                    padding: '12px', borderRadius: '12px', fontWeight: '800', fontSize: '15px',
-                    boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)', marginBottom: '12px'
-                  }}
-                >
-                  <Whatsapp size={20} /> شراء عبر الواتساب
-                </a>
-
-                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <a href={`tel:${seller.phone}`} style={{
-                    display: 'flex', alignItems: 'center', gap: '5px',
-                    textDecoration: 'none', color: C.primary, fontSize: '13px', fontWeight: '600'
-                  }}>
-                    <Telephone size={14} /> {seller.phone}
-                  </a>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-);
-
-// ========== الصفحة الرئيسية ==========
 const StorePage = () => {
   const { storeUrl } = useParams();
   const navigate = useNavigate();
@@ -154,249 +25,490 @@ const StorePage = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('');
-  const [sortBy] = useState('newest');
   const [viewMode, setViewMode] = useState('grid');
-  const [selectedProduct, setSelectedProduct] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isTablet, setIsTablet] = useState(window.innerWidth > 768 && window.innerWidth <= 1024);
+  const saleScrollRef = useRef(null);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => {
+      const w = window.innerWidth;
+      setIsMobile(w <= 768);
+      setIsTablet(w > 768 && w <= 1024);
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const found = users.find(u =>
-      u.role === 'seller' && (
-        (u.storeUrl && u.storeUrl.toLowerCase() === storeUrl.toLowerCase()) ||
-        (u.storeName && u.storeName.toLowerCase() === decodeURIComponent(storeUrl).toLowerCase())
-      )
-    );
-
-    if (found) {
-      setSeller(found);
-      const allProds = JSON.parse(localStorage.getItem('allProducts') || '[]');
-      const sellerProds = allProds.filter(p =>
-        p.sellerId === found.id && p.isVisible !== false
+    try {
+      let users = [];
+      try { users = JSON.parse(localStorage.getItem('all_users')) || []; } catch(e) {}
+      const found = users.find(u =>
+        u.role === 'seller' && (
+          (u.storeUrl && u.storeUrl.toLowerCase() === storeUrl.toLowerCase()) ||
+          (u.storeName && u.storeName.toLowerCase() === decodeURIComponent(storeUrl).toLowerCase())
+        )
       );
-      setProducts(sellerProds);
-    } else {
+      if (found) {
+        setSeller(found);
+        let allProds = [];
+        try { allProds = JSON.parse(localStorage.getItem('all_products')) || []; } catch(e) {}
+        setProducts(allProds.filter(p => p.sellerId === found.id && p.isVisible !== false));
+      } else {
+        setNotFound(true);
+      }
+    } catch (err) {
       setNotFound(true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [storeUrl]);
 
-  const filtered = products
-    .filter(p => {
-      const q = search.toLowerCase();
-      const matchQ = !q || p.name?.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q);
-      const matchCat = !filterCat || p.category === filterCat;
-      return matchQ && matchCat;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'newest') return b.id - a.id;
-      if (sortBy === 'oldest') return a.id - b.id;
-      if (sortBy === 'price_asc') return a.price - b.price;
-      if (sortBy === 'price_desc') return b.price - a.price;
-      return 0;
-    });
+  const saleProducts = products.filter(p => p.oldPrice && p.oldPrice > p.price);
+  const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
 
-  const getValidLabels = (obj) => {
-    let labels = [];
-    if (Array.isArray(obj)) {
-      labels = [...obj];
-    } else if (typeof obj === 'object' && obj !== null) {
-      Object.keys(obj).forEach(key => {
-        labels.push(key);
-        labels = [...labels, ...getValidLabels(obj[key])];
-      });
+  const filtered = products.filter(p => {
+    const q = search.toLowerCase();
+    const matchQ = !q || p.name?.toLowerCase().includes(q);
+    const matchCat = !filterCat || p.category === filterCat;
+    return matchQ && matchCat;
+  });
+
+  const scrollSale = (dir) => {
+    if (saleScrollRef.current) {
+      saleScrollRef.current.scrollBy({ left: dir * 250, behavior: 'smooth' });
     }
-    return labels;
   };
-  const allValidLabels = getValidLabels(CATEGORY_MAP);
 
-  const usedCats = [...new Set(products.map(p => p.category).filter(Boolean))].filter(c => 
-    allValidLabels.some(l => l.trim() === c.trim())
+  const socialLinks = seller?.socialLinks || {};
+  const hasSocial = socialLinks.facebook || socialLinks.instagram || socialLinks.tiktok;
+  const currentYear = new Date().getFullYear();
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, direction: 'rtl' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: '50px', height: '50px', border: `4px solid ${C.gold}30`, borderTopColor: C.gold, borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 15px' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <p style={{ color: C.gray }}>جاري تحميل المتجر...</p>
+      </div>
+    </div>
   );
 
-  if (loading) return null;
-
-  if (notFound) {
-    return (
-      <div style={{ minHeight: '100vh', direction: 'rtl' }}>
-        <Header />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: '40px', textAlign: 'center' }}>
-          <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: `${C.gold}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-            <Shop size={48} color={`${C.gold}60`} />
-          </div>
-          <h2 style={{ color: C.primary, marginBottom: '12px' }}>المتجر غير موجود</h2>
-          <Link to="/" style={{ padding: '12px 28px', background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`, color: C.primary, fontWeight: '700', borderRadius: '50px', textDecoration: 'none' }}>العودة للرئيسية</Link>
-        </div>
-        <Footer />
+  if (notFound) return (
+    <div style={{ minHeight: '100vh', direction: 'rtl', background: C.bg }}>
+      <StickyNav isMobile={isMobile} />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', padding: '40px', textAlign: 'center' }}>
+        <Shop size={48} color={C.gold} />
+        <h2 style={{ color: C.primary, marginTop: '20px' }}>المتجر غير موجود</h2>
+        <Link to="/" style={{ color: C.gold, marginTop: '10px' }}>العودة للرئيسية</Link>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div style={{ minHeight: '100vh', direction: 'rtl', background: C.bg }}>
-      
-      {/* شريط علوي للمتجر */}
-      <div style={{ background: C.white, padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1000, boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-        <Link to="/stores" style={{ color: C.sidebar, textDecoration: 'none', fontSize: '13px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <ArrowRight size={18} /> المتاجر
-        </Link>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {seller?.logo ? (
-            <img src={seller.logo} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} alt=""/>
-          ) : (
-            <Shop size={20} color={C.gold} />
-          )}
-          <span style={{ fontWeight: '800', color: C.primary, fontSize: '14px' }}>{seller?.storeName}</span>
-        </div>
+    <div style={{ minHeight: '100vh', direction: 'rtl', background: C.bg, display: 'flex', flexDirection: 'column', flex: 1 }}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .sale-scroll::-webkit-scrollbar { display: none; }
+        .store-social-btn:hover { transform: translateY(-3px) scale(1.1) !important; }
+        .store-cat-chip:hover { background: ${C.gold} !important; color: ${C.primary} !important; }
+      `}</style>
 
-        <Link to="/" style={{ color: C.gold, textDecoration: 'none', fontSize: '11px', fontWeight: '800', background: `${C.gold}15`, padding: '5px 10px', borderRadius: '8px' }}>الرئيسية</Link>
+      {/* Sticky Nav */}
+      <StickyNav seller={seller} isMobile={isMobile} />
+
+      {/* Vacation Mode Banner */}
+      {seller?.isVacationMode && (
+        <div style={{
+          background: '#dc3545', color: 'white', padding: '14px 20px',
+          textAlign: 'center', fontSize: '15px', fontWeight: '800',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
+        }}>
+          🔴 هذا المتجر مغلق مؤقتاً (وضع الإجازة) — لا يمكن الشراء حالياً
+        </div>
+      )}
+
+      {/* Hero Banner */}
+      <div style={{
+        height: isMobile ? '220px' : '280px',
+        background: seller?.banner
+          ? `linear-gradient(to bottom, rgba(10,26,58,0.3), rgba(10,26,58,0.85)), url(${seller.banner}) center/cover`
+          : `linear-gradient(135deg, ${C.primary} 0%, #1a3a6a 50%, ${C.gold}40 100%)`,
+        display: 'flex', alignItems: 'flex-end', padding: isMobile ? '25px 20px' : '35px 50px',
+        position: 'relative'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '15px' : '20px', zIndex: 2, animation: 'fadeUp 0.6s ease' }}>
+          <div style={{
+            width: isMobile ? '75px' : '95px', height: isMobile ? '75px' : '95px',
+            borderRadius: '18px', background: C.white, padding: '4px',
+            boxShadow: '0 8px 25px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            {seller?.logo
+              ? <img src={seller.logo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '14px' }} alt="" />
+              : <Shop size={isMobile ? 35 : 45} color={C.gold} />}
+          </div>
+          <div>
+            <h1 style={{ color: C.white, fontSize: isMobile ? '22px' : '30px', fontWeight: '900', margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+              {seller.storeName}
+            </h1>
+            {seller.businessActivity && (
+              <span style={{ color: C.goldLight, fontSize: isMobile ? '13px' : '15px', fontWeight: '600', marginTop: '4px', display: 'block' }}>
+                {seller.businessActivity}
+              </span>
+            )}
+            {seller.address?.state && (
+              <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '5px' }}>
+                <GeoAlt size={13} /> {seller.address.state}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* غلاف المتجر */}
-      <div style={{
-        height: '250px',
-        background: seller?.banner ? `url(${seller.banner}) center/cover no-repeat` : `linear-gradient(135deg, ${C.primary} 0%, #1a3a6a 50%, ${C.primary} 100%)`,
-        position: 'relative', display: 'flex', alignItems: 'flex-end', padding: '30px 24px'
-      }}>
-        {/* Overlay if banner exists */}
-        {seller?.banner && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)' }} />}
-        
-        <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%', position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-            <div style={{
-              width: '100px', height: '100px', borderRadius: '25px',
-              background: C.white, padding: '5px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', flexShrink: 0
-            }}>
-              {seller?.logo ? (
-                 <img src={seller.logo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '20px' }} alt=""/>
-              ) : (
-                <div style={{ width: '100%', height: '100%', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '20px' }}>
-                   <Shop size={40} color={C.gold} />
+      {/* Social Links Bar */}
+      {hasSocial && (
+        <div style={{ background: C.white, padding: '12px 20px', display: 'flex', justifyContent: 'center', gap: '12px', borderBottom: `1px solid ${C.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+          {socialLinks.facebook && <SocialIcon href={socialLinks.facebook} bg="#1877F2" icon={<Facebook size={16} />} />}
+          {socialLinks.instagram && <SocialIcon href={socialLinks.instagram} bg="#E4405F" icon={<Instagram size={16} />} />}
+          {socialLinks.tiktok && <SocialIcon href={socialLinks.tiktok} bg="#000" icon={<Tiktok size={16} />} />}
+        </div>
+      )}
+
+      {/* Working Hours */}
+      {seller?.workingHoursData && Object.keys(seller.workingHoursData).length > 0 && (() => {
+        const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+        const todayName = DAYS[new Date().getDay()];
+        const todayVal = (seller.workingHoursData || {})[todayName] || '';
+        const isClosed = !todayVal || todayVal === 'إجازة';
+
+        let isOpenNow = false;
+        if (!isClosed && todayVal.includes('-')) {
+          const [from, to] = todayVal.split('-').map(s => s.trim());
+          const now = new Date();
+          const nowMins = now.getHours() * 60 + now.getMinutes();
+          const [fh, fm] = from.split(':').map(Number);
+          const [th, tm] = to.split(':').map(Number);
+          if (!isNaN(fh) && !isNaN(th)) {
+            isOpenNow = nowMins >= (fh * 60 + (fm || 0)) && nowMins <= (th * 60 + (tm || 0));
+          }
+        }
+
+        const formatTime = (t) => {
+          if (!t) return '—';
+          let [h, m] = t.split(':').map(Number);
+          if (isNaN(h)) return t;
+          const per = h >= 12 ? 'م' : 'ص';
+          h = h % 12 || 12;
+          return `${h}:${(m || 0).toString().padStart(2, '0')} ${per}`;
+        };
+
+        return (
+          <WorkingHoursBar
+            seller={seller}
+            todayName={todayName}
+            todayVal={todayVal}
+            isClosed={isClosed}
+            isOpenNow={isOpenNow}
+            formatTime={formatTime}
+            DAYS={DAYS}
+            isMobile={isMobile}
+          />
+        );
+      })()}
+
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: isMobile ? '20px 15px' : '30px 20px' }}>
+
+        {/* Sale Products Section */}
+        {saleProducts.length > 0 && (
+          <div style={{ marginBottom: '35px', animation: 'fadeUp 0.5s ease 0.1s both' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: `${C.red}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Fire size={22} color={C.red} />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: isMobile ? '18px' : '22px', fontWeight: '900', color: C.text }}>عروض المتجر</h2>
+                  <p style={{ margin: 0, fontSize: '12px', color: C.gray }}>خصومات حصرية من {seller.storeName}</p>
+                </div>
+              </div>
+              {!isMobile && saleProducts.length > 4 && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <UIButton onClick={() => scrollSale(1)} style={scrollBtnStyle}><ChevronRight size={18} /></UIButton>
+                  <UIButton onClick={() => scrollSale(-1)} style={scrollBtnStyle}><ChevronLeft size={18} /></UIButton>
                 </div>
               )}
             </div>
-            <div style={{ flex: 1 }}>
-              <h1 style={{ color: C.white, fontSize: '32px', fontWeight: '800', marginBottom: '8px', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
-                {seller.storeName}
-              </h1>
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ color: 'white', opacity: 0.9, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <GeoAlt size={14} /> {seller.address?.state || 'اليمن'}
-                </span>
-                {/* Social Links */}
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  {seller.socialLinks?.facebook && <a href={seller.socialLinks.facebook} target="_blank" rel="noreferrer" style={{ color: 'white' }}><Facebook size={18}/></a>}
-                  {seller.socialLinks?.instagram && <a href={seller.socialLinks.instagram} target="_blank" rel="noreferrer" style={{ color: 'white' }}><Instagram size={18}/></a>}
-                  {seller.socialLinks?.tiktok && <a href={seller.socialLinks.tiktok} target="_blank" rel="noreferrer" style={{ color: 'white' }}><Tiktok size={18}/></a>}
-                </div>
-              </div>
+            <div ref={saleScrollRef} className="sale-scroll" style={{
+              display: 'flex', gap: '15px', overflowX: 'auto', paddingBottom: '10px', scrollSnapType: 'x mandatory'
+            }}>
+              {saleProducts.map(p => {
+                const discountPct = Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100);
+                return (
+                  <Link to={`/product/${p.id}`} key={p.id} style={{
+                    textDecoration: 'none', minWidth: isMobile ? '160px' : '200px', maxWidth: isMobile ? '160px' : '200px',
+                    scrollSnapAlign: 'start', flexShrink: 0
+                  }}>
+                    <div style={{ background: C.white, borderRadius: '16px', overflow: 'hidden', boxShadow: '0 3px 15px rgba(0,0,0,0.08)', border: `1px solid ${C.border}`, transition: '0.3s' }}>
+                      <div style={{ position: 'relative', height: isMobile ? '140px' : '170px' }}>
+                        <img src={p.images?.[0]?.url || p.images?.[0] || p.image || ''} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <span style={{
+                          position: 'absolute', top: '8px', right: '8px',
+                          background: C.red, color: C.white, padding: '3px 10px',
+                          borderRadius: '20px', fontSize: '12px', fontWeight: '800'
+                        }}>
+                          -{discountPct}%
+                        </span>
+                      </div>
+                      <div style={{ padding: '10px 12px' }}>
+                        <h4 style={{ margin: '0 0 6px', fontSize: '13px', fontWeight: '700', color: C.text, lineHeight: '1.3', height: '2.6em', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{p.name}</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span style={{ color: C.gold, fontWeight: '900', fontSize: '15px' }}>{(p.price || 0).toLocaleString()} ر</span>
+                          <span style={{ color: '#aaa', textDecoration: 'line-through', fontSize: '12px' }}>{(p.oldPrice).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
-            {seller.isVacationMode && (
-              <div style={{ background: C.red, color: 'white', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ClockFill/> في إجازة حالياً
-              </div>
-            )}
+          </div>
+        )}
+
+        {/* All Products Section */}
+        <div style={{ animation: 'fadeUp 0.5s ease 0.2s both' }}>
+          <div style={{ marginBottom: '18px' }}>
+            <h2 style={{ margin: 0, fontSize: isMobile ? '18px' : '22px', fontWeight: '900', color: C.text }}>جميع المنتجات</h2>
+          </div>
+
+          {/* Search + Filter */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '180px', position: 'relative' }}>
+              <Search style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: C.gray }} size={16} />
+              <input placeholder="ابحث في المتجر..." value={search} onChange={e => setSearch(e.target.value)} style={{
+                width: '100%', padding: '12px 40px 12px 15px', borderRadius: '12px',
+                border: `1px solid ${C.border}`, outline: 'none', fontSize: '14px', background: C.white
+              }} />
+            </div>
+            <UIButton onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} style={{
+              padding: '12px', borderRadius: '12px', border: `1px solid ${C.border}`,
+              background: C.white, cursor: 'pointer', display: 'flex', alignItems: 'center'
+            }}>
+              {viewMode === 'grid' ? <ListUl size={18} /> : <Grid3x2Gap size={18} />}
+            </UIButton>
+          </div>
+
+          {/* Category Chips */}
+          {categories.length > 1 && (
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '18px', paddingBottom: '5px' }}>
+              <UIButton className="store-cat-chip" onClick={() => setFilterCat('')} style={{
+                ...chipStyle, background: !filterCat ? C.gold : `${C.gold}10`,
+                color: !filterCat ? C.primary : C.gold
+              }}>الكل</UIButton>
+              {categories.map(cat => (
+                <UIButton key={cat} className="store-cat-chip" onClick={() => setFilterCat(cat)} style={{
+                  ...chipStyle, background: filterCat === cat ? C.gold : `${C.gold}10`,
+                  color: filterCat === cat ? C.primary : C.gold
+                }}>{cat}</UIButton>
+              ))}
+            </div>
+          )}
+
+          {/* Products Grid */}
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: C.gray }}>
+              <Search size={40} style={{ opacity: 0.15, marginBottom: '15px' }} />
+              <p>لا توجد منتجات{search ? ' تطابق بحثك' : ' حالياً'}</p>
+            </div>
+          ) : (
+            <div style={{
+              display: viewMode === 'grid' ? 'grid' : 'flex',
+              gridTemplateColumns: isMobile
+                ? 'repeat(2, 1fr)'
+                : isTablet
+                  ? 'repeat(3, 1fr)'
+                  : 'repeat(4, 1fr)',
+              flexDirection: 'column', gap: '15px'
+            }}>
+              {filtered.map(p => <ProductCard key={p.id} product={p} viewMode={viewMode} isMobile={isMobile} />)}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* المحتوى */}
-      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '28px 16px' }}>
-        
-        {/* قسم سلايدر عروض اليوم للتاجر */}
-        {products.filter(p => p.isOffer).length > 0 && (
-          <div style={{ marginBottom: '40px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: '800', color: C.primary, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-               <Fire color={C.red}/> عروض اليوم الحصرية 🔥
-            </h2>
-            <div style={{ 
-              display: 'flex', gap: '20px', overflowX: 'auto', padding: '10px 5px 25px',
-              scrollSnapType: 'x mandatory', scrollbarWidth: 'none', msOverflowStyle: 'none'
-            }}>
-              {products.filter(p => p.isOffer).map(offProd => (
-                <div key={offProd.id} style={{ 
-                  flex: '0 0 280px', scrollSnapAlign: 'start', background: C.white, 
-                  borderRadius: '20px', overflow: 'hidden', boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
-                  border: `1px solid ${C.gold}30`, position: 'relative'
-                }}>
-                   <div style={{ position: 'absolute', top: '12px', right: '12px', background: C.red, color: 'white', padding: '4px 12px', borderRadius: '50px', fontSize: '11px', fontWeight: 'bold', zIndex: 5 }}>عرض خاص</div>
-                   <div style={{ height: '180px', overflow: 'hidden' }}>
-                      <img src={offProd.images?.[0]?.url || offProd.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt=""/>
-                   </div>
-                   <div style={{ padding: '15px' }}>
-                      <h3 style={{ fontSize: '15px', fontWeight: '800', color: C.primary, marginBottom: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{offProd.name}</h3>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                         <span style={{ fontSize: '20px', fontWeight: '900', color: C.gold }}>{Number(offProd.price).toLocaleString()} ﷼</span>
-                         {offProd.originalPrice && <span style={{ fontSize: '14px', color: C.gray, textDecoration: 'line-through' }}>{Number(offProd.originalPrice).toLocaleString()} ﷼</span>}
-                      </div>
-                      <button 
-                        onClick={() => setSelectedProduct(offProd)}
-                        style={{ width: '100%', marginTop: '12px', padding: '10px', background: C.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}
-                      >
-                         تفاصيل العرض
-                      </button>
-                   </div>
-                </div>
-              ))}
-            </div>
+      {/* Store Footer */}
+      <footer style={{ background: C.primary, color: C.white, marginTop: 'auto', borderTop: `3px solid ${C.gold}` }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', padding: isMobile ? '35px 20px 20px' : '45px 30px 25px', textAlign: 'center' }}>
+          {/* Store Logo */}
+          <div style={{
+            width: isMobile ? '65px' : '80px', height: isMobile ? '65px' : '80px',
+            borderRadius: '18px', background: C.white, padding: '4px',
+            margin: '0 auto 15px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(200,140,35,0.3)'
+          }}>
+            {seller?.logo
+              ? <img src={seller.logo} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '14px' }} alt="" />
+              : <Shop size={isMobile ? 30 : 40} color={C.gold} />}
           </div>
-        )}
+          <h3 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: '900', color: C.gold, margin: '0 0 8px' }}>{seller.storeName}</h3>
+          {seller.businessActivity && <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', margin: '0 0 20px' }}>{seller.businessActivity}</p>}
 
-        {products.length === 0 ? (
-          <div style={{ background: C.card, borderRadius: '20px', padding: '60px', textAlign: 'center', border: `1px solid ${C.border}` }}>
-            <BoxSeam size={60} color={`${C.gold}40`} style={{ marginBottom: '16px' }} />
-            <h3 style={{ color: C.primary, marginBottom: '8px' }}>لا توجد منتجات بعد</h3>
+          {/* Social Links */}
+          {hasSocial && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginBottom: '25px' }}>
+              {socialLinks.facebook && <SocialIcon href={socialLinks.facebook} bg="#1877F2" icon={<Facebook size={18} />} />}
+              {socialLinks.instagram && <SocialIcon href={socialLinks.instagram} bg="#E4405F" icon={<Instagram size={18} />} />}
+              {socialLinks.tiktok && <SocialIcon href={socialLinks.tiktok} bg="#000" icon={<Tiktok size={18} />} />}
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '25px', flexWrap: 'wrap' }}>
+            <Link to="/" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>الرئيسية</Link>
+            <Link to="/stores" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>المتاجر</Link>
+            <Link to="/offers" style={{ color: 'rgba(255,255,255,0.7)', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>العروض</Link>
           </div>
-        ) : (
-          <>
-            {/* شريط الأدوات */}
-            <div style={{ background: C.card, borderRadius: '14px', padding: '14px 18px', marginBottom: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', border: `1px solid ${C.border}` }}>
-              <form onSubmit={e => e.preventDefault()} style={{ display: 'flex', alignItems: 'center', gap: '8px', border: `2px solid ${C.border}`, borderRadius: '10px', padding: '8px 14px', flex: 1, minWidth: '180px' }}>
-                <Search size={14} color={C.gray} />
-                <input placeholder="ابحث في المنتجات..." value={search} onChange={e => setSearch(e.target.value)} style={{ border: 'none', outline: 'none', flex: 1, fontSize: '13px', background: 'transparent' }} />
-              </form>
-              <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ padding: '8px 14px', border: `2px solid ${C.border}`, borderRadius: '10px', fontSize: '13px', outline: 'none', background: C.white, cursor: 'pointer' }}>
-                <option value="">كل الفئات</option>
-                {usedCats.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                {[['grid', <Grid3x2Gap key="g" size={16} />], ['list', <ListUl key="l" size={16} />]].map(([mode, icon]) => (
-                  <button key={mode} onClick={() => setViewMode(mode)} style={{ padding: '8px 12px', border: `2px solid ${viewMode === mode ? C.gold : C.border}`, borderRadius: '8px', background: viewMode === mode ? `${C.gold}15` : C.white, color: viewMode === mode ? C.gold : C.gray, cursor: 'pointer' }}>{icon}</button>
-                ))}
-              </div>
-            </div>
 
-            {/* عرض المنتجات */}
-            <div style={{ display: viewMode === 'grid' ? 'grid' : 'flex', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', flexDirection: 'column', gap: isMobile ? '10px' : '18px' }}>
-              {filtered.map(product => (
-                <ProductCard
-                  key={product.id}
-                  product={{ ...product, seller: seller?.storeName || 'متجر' }}
-                  viewMode={viewMode}
-                  isMobile={isMobile}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {selectedProduct && (
-        <ProductModal 
-          product={selectedProduct} 
-          seller={seller} 
-          onClose={() => setSelectedProduct(null)} 
-        />
-      )}
-
-      <Footer />
+          {/* Copyright */}
+          <div style={{ borderTop: `1px solid ${C.gold}30`, paddingTop: '18px' }}>
+            <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+              حقوق الطبع والنشر © {currentYear} محفوظة لمنصة توريد نت TawreedNet
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
+};
+
+/* ── Helper Components ── */
+
+const StickyNav = ({ seller, isMobile }) => (
+  <div style={{
+    background: C.white, padding: isMobile ? '10px 15px' : '12px 30px',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    position: 'sticky', top: 0, zIndex: 1000,
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderBottom: `1px solid ${C.border}`
+  }}>
+    <Link to="/stores" style={{
+      color: C.primary, textDecoration: 'none', display: 'flex', alignItems: 'center',
+      gap: '5px', fontSize: '14px', fontWeight: '700'
+    }}>
+      <ArrowRight size={16} /> المتاجر
+    </Link>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {seller?.logo && (
+        <div style={{ width: '28px', height: '28px', borderRadius: '8px', overflow: 'hidden' }}>
+          <img src={seller.logo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+        </div>
+      )}
+      <span style={{ fontWeight: '800', fontSize: '15px', color: C.primary }}>{seller?.storeName || ''}</span>
+    </div>
+    <Link to="/" style={{
+      color: C.gold, textDecoration: 'none', display: 'flex', alignItems: 'center',
+      gap: '5px', fontSize: '14px', fontWeight: '700'
+    }}>
+      الرئيسية <HouseDoor size={16} />
+    </Link>
+  </div>
+);
+
+const SocialIcon = ({ href, bg, icon }) => (
+  <a href={href} target="_blank" rel="noopener noreferrer" className="store-social-btn" style={{
+    width: '38px', height: '38px', borderRadius: '50%', background: bg,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: C.white, transition: 'all 0.3s', boxShadow: '0 3px 10px rgba(0,0,0,0.15)'
+  }}>
+    {icon}
+  </a>
+);
+
+const scrollBtnStyle = {
+  width: '36px', height: '36px', borderRadius: '50%', border: `1px solid ${C.border}`,
+  background: C.white, cursor: 'pointer', display: 'flex', alignItems: 'center',
+  justifyContent: 'center', color: C.primary, transition: '0.2s'
+};
+
+const WorkingHoursBar = ({ seller, todayName, todayVal, isClosed, isOpenNow, formatTime, DAYS, isMobile }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  const allDays = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+
+  return (
+    <div style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+      <div
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          maxWidth: '1100px', margin: '0 auto',
+          padding: isMobile ? '12px 15px' : '14px 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', gap: '12px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '10px', height: '10px', borderRadius: '50%',
+            background: isClosed ? C.red : (isOpenNow ? C.green : '#fd7e14'),
+            boxShadow: isClosed ? `0 0 8px ${C.red}60` : (isOpenNow ? `0 0 8px ${C.green}60` : `0 0 8px #fd7e1460`)
+          }} />
+          <span style={{ fontWeight: '800', fontSize: '14px', color: isClosed ? C.red : (isOpenNow ? C.green : '#fd7e14') }}>
+            {isClosed ? 'مغلق اليوم' : (isOpenNow ? 'مفتوح الآن' : 'مغلق حالياً')}
+          </span>
+          {!isClosed && todayVal.includes('-') && (() => {
+            const [from, to] = todayVal.split('-').map(s => s.trim());
+            return (
+              <span style={{ fontSize: '13px', color: C.gray, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Clock size={13} /> {formatTime(from)} - {formatTime(to)}
+              </span>
+            );
+          })()}
+        </div>
+        <ChevronDown size={14} color={C.gray} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: '0.3s' }} />
+      </div>
+
+      {expanded && (
+        <div style={{
+          maxWidth: '1100px', margin: '0 auto',
+          padding: isMobile ? '0 15px 15px' : '0 20px 18px',
+          display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '8px'
+        }}>
+          {allDays.map(day => {
+            const val = (seller.workingHoursData || {})[day] || '';
+            const dayIsClosed = !val || val === 'إجازة';
+            const isToday = day === todayName;
+            const [from, to] = val.includes('-') ? val.split('-').map(s => s.trim()) : ['', ''];
+            return (
+              <div key={day} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px', borderRadius: '10px',
+                background: isToday ? `${C.gold}12` : C.bg,
+                border: isToday ? `1.5px solid ${C.gold}40` : `1px solid ${C.border}`
+              }}>
+                <span style={{
+                  fontWeight: isToday ? '800' : '600', fontSize: '13px',
+                  color: isToday ? C.gold : (dayIsClosed ? C.red : C.text)
+                }}>
+                  {day} {isToday && '(اليوم)'}
+                </span>
+                <span style={{
+                  fontSize: '13px', fontWeight: '700',
+                  color: dayIsClosed ? C.red : C.text
+                }}>
+                  {dayIsClosed ? 'مغلق' : `${formatTime(from)} - ${formatTime(to)}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const chipStyle = {
+  padding: '7px 16px', borderRadius: '20px', border: 'none',
+  fontSize: '13px', fontWeight: '700', cursor: 'pointer',
+  whiteSpace: 'nowrap', transition: '0.2s'
 };
 
 export default StorePage;

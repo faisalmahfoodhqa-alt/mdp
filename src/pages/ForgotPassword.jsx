@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { UIButton } from '../shared/components/ui';
 import { 
   Lock, Telephone, Eye, EyeSlash, 
   CheckCircle, ShieldLock, ArrowRight, ArrowLeft
@@ -48,7 +49,7 @@ const ForgotPassword = () => {
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     const cleanPhone = phone.replace(/\D/g, '');
     if (!/^(77|78|71|70|73)[0-9]{7}$/.test(cleanPhone)) {
       setError('يرجى إدخال رقم جوال صحيح مكون من 9 أرقام');
@@ -56,18 +57,17 @@ const ForgotPassword = () => {
     }
 
     setLoading(true);
-    // التحقق من وجود الحساب
-    const exists = checkUserExists(cleanPhone);
-    
-    setTimeout(() => {
+    try {
+      const exists = await checkUserExists(cleanPhone);
       if (exists === 'phone') {
         setStep(2);
         setTimerCount(60);
       } else {
         setError('عذراً، هذا الرقم غير مسجل لدينا');
       }
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   const handleOtpSubmit = (e) => {
@@ -209,7 +209,7 @@ const ForgotPassword = () => {
                 style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }}
               />
             </div>
-            <button
+            <UIButton
               type="submit"
               disabled={loading}
               style={{
@@ -226,7 +226,7 @@ const ForgotPassword = () => {
               }}
             >
               {loading ? 'جاري التحقق...' : 'إرسال الرمز'}
-            </button>
+            </UIButton>
           </form>
         )}
 
@@ -267,32 +267,32 @@ const ForgotPassword = () => {
             </div>
             <div style={{ textAlign: 'center', marginBottom: '25px' }}>
               {canResend ? (
-                <button 
-                  type="button" 
+                <UIButton
+                  type="button"
                   onClick={() => { setTimerCount(60); setCanResend(false); }}
-                  style={{ background: 'none', border: 'none', color: colors.gold, fontWeight: 'bold', cursor: 'pointer' }}
+                  style={{ background: 'none', border: 'none', color: colors.gold, fontWeight: 'bold', cursor: 'pointer', padding: 0, minWidth: 'auto' }}
                 >
                   إعادة إرسال الرمز
-                </button>
+                </UIButton>
               ) : (
                 <span style={{ color: colors.gray, fontSize: '13px' }}>إعادة الإرسال خلال {timerCount} ثانية</span>
               )}
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                type="button" 
+              <UIButton
+                type="button"
                 onClick={() => setStep(1)}
                 style={{ flex: 1, padding: '14px', background: 'none', border: `1.5px solid ${colors.gold}`, borderRadius: '12px', color: colors.gold, fontWeight: 'bold' }}
               >
                 رجوع
-              </button>
-              <button 
+              </UIButton>
+              <UIButton
                 type="submit"
                 disabled={loading}
                 style={{ flex: 2, padding: '14px', background: colors.gold, color: colors.primary, border: 'none', borderRadius: '12px', fontWeight: 'bold' }}
               >
                 تأكيد الكود
-              </button>
+              </UIButton>
             </div>
           </form>
         )}
@@ -310,9 +310,9 @@ const ForgotPassword = () => {
                 required
                 style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }}
               />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+              <UIButton type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 'auto' }}>
                 {showPassword ? <EyeSlash size={18} color={colors.gray} /> : <Eye size={18} color={colors.gray} />}
-              </button>
+              </UIButton>
             </div>
             <div style={inputStyle(false)}>
               <Lock size={20} color={colors.gold} style={{ marginLeft: '12px' }} />
@@ -325,7 +325,7 @@ const ForgotPassword = () => {
                 style={{ flex: 1, border: 'none', outline: 'none', fontSize: '15px' }}
               />
             </div>
-            <button
+            <UIButton
               type="submit"
               disabled={loading}
               style={{
@@ -342,7 +342,7 @@ const ForgotPassword = () => {
               }}
             >
               حفظ كلمة المرور
-            </button>
+            </UIButton>
           </form>
         )}
 
@@ -352,7 +352,8 @@ const ForgotPassword = () => {
             <div style={{ marginBottom: '30px', animation: 'fadeIn 0.5s ease' }}>
               <CheckCircle size={70} color={colors.green} />
             </div>
-            <button
+            <UIButton
+              type="button"
               onClick={() => navigate('/login')}
               style={{
                 width: '100%',
@@ -367,7 +368,7 @@ const ForgotPassword = () => {
               }}
             >
               تسجيل الدخول الآن
-            </button>
+            </UIButton>
           </div>
         )}
 

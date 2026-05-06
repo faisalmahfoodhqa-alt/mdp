@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getAllCategories, getProductsByCategory } from '../data/products';
 import ProductCard from '../components/products/ProductCard';
+import { UIButton } from '../shared/components/ui';
 import { ArrowLeft } from 'react-bootstrap-icons';
 
 const SearchPage = () => {
@@ -72,8 +73,8 @@ const SearchPage = () => {
             </h2>
             <p style={{ margin: 0, fontSize: '14px', color: '#eee' }}>تم العثور على {results.length} منتج</p>
           </div>
-          <button 
-            onClick={() => navigate(-1)}
+          <UIButton 
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
             style={{
               background: 'transparent',
               border: `1px solid ${colors.gold}`,
@@ -90,7 +91,7 @@ const SearchPage = () => {
           >
             رجوع
             <ArrowLeft size={14} />
-          </button>
+          </UIButton>
         </div>
         
         {!query ? (

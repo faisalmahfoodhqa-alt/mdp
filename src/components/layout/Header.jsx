@@ -23,6 +23,7 @@ import {
   BagCheckFill
 } from 'react-bootstrap-icons';
 import { mensProducts, womensProducts, kidsProducts, electronicsProducts, vehiclesProducts, realEstateProducts, constructionProducts, foodProducts } from '../../data/products';
+import { UIButton } from '../../shared/components/ui';
 
 const Header = () => {
   const { user, logout, isAuthenticated, isSeller } = useAuth();
@@ -34,7 +35,10 @@ const Header = () => {
   const [openMobileCategory, setOpenMobileCategory] = useState(null);
   const [openMobileSubCategory, setOpenMobileSubCategory] = useState(null);
   const [openUserMenu, setOpenUserMenu] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth <= 768;
+  });
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -93,7 +97,6 @@ const Header = () => {
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
-    checkScreenSize();
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
@@ -120,6 +123,7 @@ const Header = () => {
   const menuData = {
     'الأزياء الرجالية': {
       icon: '👔',
+      innerColumns: 4,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -154,6 +158,7 @@ const Header = () => {
     },
     'الأزياء النسائية': {
       icon: '👗',
+      innerColumns: 4,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -211,6 +216,7 @@ const Header = () => {
     },
     'أزياء الأطفال': {
       icon: '🧸',
+      innerColumns: 4,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -244,6 +250,7 @@ const Header = () => {
     },
     'الإلكترونيات': {
       icon: '📱',
+      innerColumns: 4,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -298,6 +305,7 @@ const Header = () => {
     },
     'المركبات': {
       icon: '🚗',
+      innerColumns: 4,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -334,6 +342,7 @@ const Header = () => {
     },
     'العقارات': {
       icon: '🏠',
+      innerColumns: 3,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -364,6 +373,7 @@ const Header = () => {
     },
     'مواد البناء': {
       icon: '🧱',
+      innerColumns: 4,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -422,6 +432,7 @@ const Header = () => {
     },
     'المواد الغذائية': {
       icon: '🍎',
+      innerColumns: 4,
       megaMenu: [
         {
           title: 'جميع الأقسام',
@@ -502,97 +513,129 @@ const Header = () => {
     setOpenMobileSubCategory(null);
   };
 
-  // دالة عرض الميجا مينو للكمبيوتر
-  const renderMegaMenu = (menuItems) => {
+  // دالة عرض الميجا مينو للكمبيوتر — قسم رئيسي + فرعي؛ تقسيم العناصر على innerColumns (2–4 حسب القسم)
+  const renderMegaMenu = (menuItems, innerColumns = 2) => {
     const numColumns = menuItems.length;
+    const innerN = Math.min(Math.max(Number(innerColumns) || 2, 1), 4);
+    const menuMaxWidth = '100%';
+
+    const splitItemsIntoColumns = (items, n) => {
+      if (!Array.isArray(items) || items.length === 0) {
+        return Array.from({ length: n }, () => []);
+      }
+      const chunks = Array.from({ length: n }, () => []);
+      const per = Math.ceil(items.length / n);
+      for (let c = 0; c < n; c++) {
+        chunks[c] = items.slice(c * per, (c + 1) * per);
+      }
+      return chunks;
+    };
+
+    const renderMainItem = (column, item, itemIdx, keyPrefix) => (
+      <li key={`${keyPrefix}-${itemIdx}`} style={{ marginBottom: '8px', position: 'relative' }}>
+        <Link
+          to={`/category/${item.replace(/\s+/g, '-')}`}
+          style={{
+            color: colors.primary,
+            textDecoration: 'none',
+            fontSize: '14px',
+            transition: 'all 0.3s',
+            display: 'block',
+            padding: '4px 0',
+            fontWeight: '500'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.color = colors.gold;
+            e.target.style.paddingRight = '8px';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.color = colors.primary;
+            e.target.style.paddingRight = '0';
+          }}
+        >
+          {item}
+        </Link>
+
+        {column.subItems && column.subItems[item] && (
+          <div style={{
+            marginTop: '4px',
+            marginRight: '10px',
+            paddingRight: '8px',
+            borderRight: `1px dashed ${colors.gold}40`
+          }}>
+            {column.subItems[item].map((subItem, subIdx) => (
+              <Link
+                key={subIdx}
+                to={`/category/${subItem.replace(/\s+/g, '-')}`}
+                style={{
+                  color: '#666',
+                  textDecoration: 'none',
+                  fontSize: '12px',
+                  transition: 'all 0.3s',
+                  display: 'block',
+                  padding: '2px 0 2px 0'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.color = colors.gold;
+                  e.target.style.paddingRight = '5px';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.color = '#666';
+                  e.target.style.paddingRight = '0';
+                }}
+              >
+                {subItem}
+              </Link>
+            ))}
+          </div>
+        )}
+      </li>
+    );
 
     return (
       <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
         gap: '30px',
-        minWidth: numColumns === 4 ? '1100px' : numColumns === 5 ? '1300px' : '900px',
-        padding: '25px',
-        maxHeight: '500px',
-        overflowY: 'auto'
+        width: '100%',
+        minWidth: 0,
+        maxWidth: menuMaxWidth,
+        boxSizing: 'border-box',
+        padding: innerN >= 4 ? '22px 28px' : '22px 18px',
+        maxHeight: 'min(78vh, 760px)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        WebkitOverflowScrolling: 'touch'
       }}>
-        {menuItems.map((column, colIdx) => (
-          <div key={colIdx}>
-            <h4 style={{
-              color: colors.gold,
-              margin: '0 0 15px 0',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              borderBottom: `2px solid ${colors.gold}`,
-              paddingBottom: '8px'
-            }}>
-              {column.title}
-            </h4>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {column.items.map((item, itemIdx) => (
-                <li key={itemIdx} style={{ marginBottom: '8px', position: 'relative' }}>
-                  <Link
-                    to={`/category/${item.replace(/\s+/g, '-')}`}
-                    style={{
-                      color: colors.primary,
-                      textDecoration: 'none',
-                      fontSize: '14px',
-                      transition: 'all 0.3s',
-                      display: 'block',
-                      padding: '4px 0',
-                      fontWeight: '500'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = colors.gold;
-                      e.target.style.paddingRight = '8px';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = colors.primary;
-                      e.target.style.paddingRight = '0';
-                    }}
-                  >
-                    {item}
-                  </Link>
-
-                  {/* عرض العناصر الفرعية للكمبيوتر */}
-                  {column.subItems && column.subItems[item] && (
-                    <div style={{
-                      marginTop: '4px',
-                      marginRight: '10px',
-                      paddingRight: '8px',
-                      borderRight: `1px dashed ${colors.gold}40`
-                    }}>
-                      {column.subItems[item].map((subItem, subIdx) => (
-                        <Link
-                          key={subIdx}
-                          to={`/category/${subItem.replace(/\s+/g, '-')}`}
-                          style={{
-                            color: '#666',
-                            textDecoration: 'none',
-                            fontSize: '12px',
-                            transition: 'all 0.3s',
-                            display: 'block',
-                            padding: '2px 0 2px 0'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.color = colors.gold;
-                            e.target.style.paddingRight = '5px';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.color = '#666';
-                            e.target.style.paddingRight = '0';
-                          }}
-                        >
-                          {subItem}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {menuItems.map((column, colIdx) => {
+          const itemChunks = splitItemsIntoColumns(column.items || [], innerN);
+          return (
+            <div key={colIdx}>
+              <h4 style={{
+                color: colors.gold,
+                margin: '0 0 15px 0',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                borderBottom: `2px solid ${colors.gold}`,
+                paddingBottom: '8px'
+              }}>
+                {column.title}
+              </h4>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${innerN}, minmax(0, 1fr))`,
+                gap: '20px 22px',
+                alignItems: 'start'
+              }}>
+                {itemChunks.map((chunk, chunkIdx) => (
+                  <ul key={chunkIdx} style={{ listStyle: 'none', padding: 0, margin: 0, minWidth: 0 }}>
+                    {chunk.map((item, itemIdx) => renderMainItem(column, item, itemIdx, `C${colIdx}-${chunkIdx}`))}
+                  </ul>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -628,7 +671,7 @@ const Header = () => {
             borderBottom: `1px solid ${colors.gold}40`,
             paddingBottom: '15px'
           }}>
-            <button
+            <UIButton
               onClick={closeMobileMenu}
               style={{
                 background: 'none',
@@ -639,7 +682,7 @@ const Header = () => {
               }}
             >
               <X size={24} />
-            </button>
+            </UIButton>
           </div>
 
           {/* معلومات المستخدم في الجوال - تم نقلها للأعلى */}
@@ -790,7 +833,7 @@ const Header = () => {
             {/* الأقسام الأخرى */}
             {Object.entries(menuData).map(([category, data]) => (
               <li key={category} style={{ marginBottom: '10px' }}>
-                <button
+                <UIButton
                   onClick={() => openMobileCategoryMenu(category)}
                   style={{
                     width: '100%',
@@ -808,7 +851,7 @@ const Header = () => {
                 >
                   <span>{data.icon} {category}</span>
                   <ChevronLeft size={16} color={colors.gold} />
-                </button>
+                </UIButton>
               </li>
             ))}
 
@@ -838,7 +881,7 @@ const Header = () => {
             {/* زر تسجيل الخروج في الأسفل */}
             {isAuthenticated && (
               <li style={{ marginTop: '20px', paddingBottom: '60px' }}>
-                <button
+                <UIButton
                   onClick={() => {
                     handleLogout();
                     closeMobileMenu();
@@ -860,7 +903,7 @@ const Header = () => {
                 >
                   <BoxArrowRight size={18} />
                   تسجيل خروج
-                </button>
+                </UIButton>
               </li>
             )}
           </ul>
@@ -897,7 +940,7 @@ const Header = () => {
             borderBottom: `2px solid ${colors.gold}`,
             paddingBottom: '12px'
           }}>
-            <button
+            <UIButton
               onClick={goBackToCategories}
               style={{
                 background: colors.gold,
@@ -914,7 +957,7 @@ const Header = () => {
               }}
             >
               <ChevronLeft size={18} style={{ transform: 'rotate(180deg)' }} />
-            </button>
+            </UIButton>
 
             <h3 style={{
               color: colors.white,
@@ -926,7 +969,7 @@ const Header = () => {
               {openMobileCategory}
             </h3>
 
-            <button
+            <UIButton
               onClick={closeMobileMenu}
               style={{
                 background: 'none',
@@ -938,7 +981,7 @@ const Header = () => {
               }}
             >
               <X size={24} />
-            </button>
+            </UIButton>
           </div>
 
           {/* قائمة الأقسام الفرعية */}
@@ -958,7 +1001,7 @@ const Header = () => {
                   {column.items.map((item, itemIdx) => (
                     <li key={itemIdx} style={{ marginBottom: '8px' }}>
                       {column.subItems && column.subItems[item] ? (
-                        <button
+                        <UIButton
                           onClick={() => openMobileSubCategoryMenu(item)}
                           style={{
                             width: '100%',
@@ -977,7 +1020,7 @@ const Header = () => {
                         >
                           <span>{item}</span>
                           <ChevronLeft size={14} color={colors.gold} />
-                        </button>
+                        </UIButton>
                       ) : (
                         <Link
                           to={`/category/${item.replace(/\s+/g, '-')}`}
@@ -1041,7 +1084,7 @@ const Header = () => {
           borderBottom: `2px solid ${colors.gold}`,
           paddingBottom: '12px'
         }}>
-          <button
+          <UIButton
             onClick={goBackToSubCategories}
             style={{
               background: colors.gold,
@@ -1058,7 +1101,7 @@ const Header = () => {
             }}
           >
             <ChevronLeft size={18} style={{ transform: 'rotate(180deg)' }} />
-          </button>
+          </UIButton>
 
           <h3 style={{
             color: colors.white,
@@ -1070,7 +1113,7 @@ const Header = () => {
             {openMobileSubCategory}
           </h3>
 
-          <button
+          <UIButton
             onClick={closeMobileMenu}
             style={{
               background: 'none',
@@ -1082,7 +1125,7 @@ const Header = () => {
             }}
           >
             <X size={24} />
-          </button>
+          </UIButton>
         </div>
 
         {/* قائمة العناصر الفرعية */}
@@ -1130,7 +1173,7 @@ const Header = () => {
       boxShadow: `0 10px 30px -10px ${colors.goldDark}`,
       direction: 'rtl',
       width: '100%',
-      position: 'relative',
+      position: 'sticky',
       top: 0,
       zIndex: 1000,
       fontFamily: 'Arial, sans-serif'
@@ -1141,7 +1184,8 @@ const Header = () => {
         borderBottom: `1px solid ${colors.gold}40`,
         background: colors.primary,
         position: 'relative',
-        zIndex: 1002
+        zIndex: 1002,
+        minHeight: isMobile ? '60px' : '88px'
       }}>
         <div style={{
           display: 'flex',
@@ -1217,13 +1261,13 @@ const Header = () => {
                       color: colors.primary
                     }}
                   />
-                  <button type="submit" style={{
+                  <UIButton type="submit" style={{
                     background: colors.gold, border: 'none', borderRadius: '50%',
                     width: '30px', height: '30px', display: 'flex',
                     alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
                   }}>
                     <Search size={16} color={colors.white} />
-                  </button>
+                  </UIButton>
                 </form>
 
                 {/* قائمة الاقتراحات للكمبيوتر */}
@@ -1318,11 +1362,11 @@ const Header = () => {
                 <span>المتاجر</span>
               </Link>
 
-              {/* قائمة طلباتي والإشعارات */}
-              {isAuthenticated && !isSeller && (
+              {/* قائمة الإشعارات - للعميل والبائع */}
+              {isAuthenticated && (
                 <>
                   <Link
-                    to="/notifications"
+                    to={isSeller ? "/seller/dashboard" : "/notifications"}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '3px', padding: isMobile ? '5px 8px' : '8px 15px',
                       borderRadius: '10px', background: `${colors.gold}20`,
@@ -1348,19 +1392,7 @@ const Header = () => {
                     )}
                   </Link>
 
-                  <Link
-                    to="/orders"
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '3px', padding: isMobile ? '5px 8px' : '8px 15px',
-                      borderRadius: '10px', background: `${colors.gold}20`,
-                      border: `1px solid ${colors.gold}60`, color: colors.white,
-                      textDecoration: 'none', fontSize: isMobile ? '10px' : '14px', transition: 'all 0.3s',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <BagCheckFill size={isMobile ? 16 : 18} color={colors.gold} />
-                    <span>طلباتي</span>
-                  </Link>
+
                 </>
               )}
 
@@ -1416,19 +1448,19 @@ const Header = () => {
                     </div>
                     <div style={{ padding: '8px 0' }}>
                       <Link to={isSeller ? "/seller/dashboard" : "/profile"} style={{ display: 'block', padding: '10px 15px', color: colors.primary, textDecoration: 'none', fontSize: '13px' }}>لوحة التحكم</Link>
-                      <button onClick={handleLogout} style={{ display: 'block', width: '100%', textAlign: 'right', padding: '10px 15px', color: colors.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}>تسجيل الخروج</button>
+                      <UIButton onClick={handleLogout} style={{ display: 'block', width: '100%', textAlign: 'right', padding: '10px 15px', color: colors.red, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}>تسجيل الخروج</UIButton>
                     </div>
                   </div>
                 )}
               </div>
 
               {isMobile && (
-                <button
+                <UIButton
                   onClick={() => setOpenMobileMenu(true)}
                   style={{ background: 'transparent', border: 'none', color: colors.gold, padding: '2px', cursor: 'pointer' }}
                 >
                   <List size={30} />
-                </button>
+                </UIButton>
               )}
             </div>
           </div>
@@ -1468,14 +1500,14 @@ const Header = () => {
                   outline: 'none', fontSize: '15px', background: 'transparent', color: colors.primary
                 }}
               />
-              <button type="submit" style={{
+              <UIButton type="submit" style={{
                 background: colors.gold, border: 'none', borderRadius: '10px',
                 width: '30px', height: '30px', display: 'flex',
                 alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                 flexShrink: 0
               }}>
                 <Search size={15} color={colors.white} />
-              </button>
+              </UIButton>
             </form>
           </div>
         )}
@@ -1544,14 +1576,25 @@ const Header = () => {
             </li>
 
             {/* جميع الأقسام الرئيسية للكمبيوتر */}
-            {Object.entries(menuData).map(([category, data], index) => (
+            {Object.entries(menuData).map(([category, data], index) => {
+              const catTotal = Object.keys(menuData).length;
+              /* في RTL + flex: الأوائل في المصفوفة يمين الشاشة، الأخيرة يسار — التوسيط يخرج القائمة عن الإطار */
+              const pinToInlineEnd = index < 2;
+              const pinToInlineStart = index >= catTotal - 2;
+              const dropdownAnchor = pinToInlineEnd
+                ? { right: 0, left: 'auto', transform: 'none' }
+                : pinToInlineStart
+                  ? { left: 0, right: 'auto', transform: 'none' }
+                  : { left: '50%', right: 'auto', transform: 'translateX(-50%)' };
+
+              return (
               <li
                 key={category}
                 style={{ position: 'relative' }}
                 onMouseEnter={() => setOpenDropdown(index)}
                 onMouseLeave={() => setOpenDropdown(null)}
               >
-                <button
+                <UIButton
                   style={{
                     background: openDropdown === index ? colors.gold : 'transparent',
                     border: `1px solid ${colors.gold}`,
@@ -1567,24 +1610,39 @@ const Header = () => {
                   <ChevronDown size={12} style={{
                     transform: openDropdown === index ? 'rotate(180deg)' : 'none'
                   }} />
-                </button>
+                </UIButton>
 
                 {/* الميجا مينو للكمبيوتر */}
                 {openDropdown === index && (
-                  <div style={{
-                    position: 'absolute', top: '100%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: colors.white, borderRadius: '15px',
-                    marginTop: '8px', border: `1px solid ${colors.gold}`,
-                    boxShadow: `0 10px 30px ${colors.gold}60`,
-                    zIndex: 9999
-                  }}>
-                    {renderMegaMenu(data.megaMenu)}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      paddingTop: '10px',
+                      zIndex: 9999,
+                      maxWidth: 'min(1480px, calc(100vw - 20px))',
+                      width: 'max-content',
+                      boxSizing: 'border-box',
+                      ...dropdownAnchor
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: colors.white,
+                        borderRadius: '15px',
+                        border: `1px solid ${colors.gold}`,
+                        boxShadow: `0 10px 30px ${colors.gold}60`,
+                        maxWidth: 'min(1480px, calc(100vw - 20px))',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      {renderMegaMenu(data.megaMenu, data.innerColumns ?? 2)}
+                    </div>
                   </div>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}

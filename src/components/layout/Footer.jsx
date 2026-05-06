@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Facebook, 
   Twitter, 
@@ -11,6 +12,7 @@ import {
 const Footer = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const { isAuthenticated, isSeller } = useAuth();
 
   // التحقق من حجم الشاشة
   useEffect(() => {
@@ -193,6 +195,13 @@ const Footer = () => {
                   المساعدة
                 </h4>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {isAuthenticated && !isSeller && (
+                    <li style={{ marginBottom: isMobile ? '8px' : '10px' }}>
+                      <Link to="/orders" style={{ color: colors.white, textDecoration: 'none', fontSize: isMobile ? '13px' : '14px' }}>
+                        طلباتي
+                      </Link>
+                    </li>
+                  )}
                   <li style={{ marginBottom: isMobile ? '8px' : '10px' }}>
                     <Link to="/disputes" style={{ color: colors.white, textDecoration: 'none', fontSize: isMobile ? '13px' : '14px' }}>
                       سياسة النزاعات والاسترجاع
@@ -266,6 +275,13 @@ const Footer = () => {
                   المساعدة
                 </h4>
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {isAuthenticated && !isSeller && (
+                    <li style={{ marginBottom: isMobile ? '8px' : '10px' }}>
+                      <Link to="/orders" style={{ color: colors.white, textDecoration: 'none', fontSize: isMobile ? '13px' : '14px' }}>
+                        طلباتي
+                      </Link>
+                    </li>
+                  )}
                   <li style={{ marginBottom: isMobile ? '8px' : '10px' }}>
                     <Link to="/disputes" style={{ color: colors.white, textDecoration: 'none', fontSize: isMobile ? '13px' : '14px' }}>
                       سياسة النزاعات والاسترجاع

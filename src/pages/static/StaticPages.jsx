@@ -1,4 +1,5 @@
 import React from 'react';
+import { UIButton } from '../../shared/components/ui';
 
 const StaticPage = ({ title, children }) => {
   const colors = {
@@ -86,7 +87,7 @@ export const Contact = () => (
       <input placeholder="الاسم" style={{ display: 'block', width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #ddd' }} />
       <input placeholder="رقم الجوال" style={{ display: 'block', width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #ddd' }} />
       <textarea placeholder="رسالتك" style={{ display: 'block', width: '100%', padding: '10px', height: '100px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #ddd' }} />
-      <button style={{ width: '100%', padding: '12px', background: '#0a1a3a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>إرسال</button>
+      <UIButton style={{ width: '100%', padding: '12px', background: '#0a1a3a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>إرسال</UIButton>
     </div>
   </StaticPage>
 );
@@ -116,7 +117,7 @@ export const Affiliate = () => (
         <li>شارك روابط المنتجات مع أصدقائك أو متابعيك.</li>
         <li>احصل على عمولة عن كل عملية شراء ناجحة تتم عبر رابطك.</li>
       </ol>
-      <button style={{ marginTop: '15px', padding: '10px 25px', background: '#c88c23', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>ابدأ الآن</button>
+      <UIButton style={{ marginTop: '15px', padding: '10px 25px', background: '#c88c23', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>ابدأ الآن</UIButton>
     </div>
   </StaticPage>
 );

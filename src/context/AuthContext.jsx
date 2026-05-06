@@ -1,6 +1,16 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as DefaultProducts from '../data/products';
+import {
+  ADMIN_ROLES,
+  hasPermission as hasPermissionByRole,
+  canAccessAdminTab as canAccessAdminTabByRole,
+  getAdminRole,
+  getAdminRoleLabel as getAdminRoleLabelFromRbac
+} from '../utils/rbac';
+import { useBackend } from '../config/backend';
+import { backendApi } from '../api/backendApi';
+// Removed firebaseService import
 
 const AuthContext = createContext();
 
@@ -47,105 +57,302 @@ export const PLANS = {
   }
 };
 
-const TRIAL_DAYS = 10;
+const TRIAL_DAYS = 90;
 
 export const AuthProvider = ({ children }) => {
-  const getInitialUser = () => {
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('user');
     try {
-      const storedUser = localStorage.getItem('user');
-      return storedUser ? JSON.parse(storedUser) : null;
+      return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
-  };
-
-  const [user, setUser] = useState(getInitialUser());
-  const [loading, setLoading] = useState(false);
+  });
+  const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
-  const [allProducts, setAllProducts] = useState(() => {
+  const [allProducts, setAllProducts] = useState([]);
+  const navigate = useNavigate();
+
+  const getUsers = () => {
     try {
-      return JSON.parse(localStorage.getItem('allProducts') || '[]');
+      const primary = JSON.parse(localStorage.getItem('all_users') || '[]');
+      if (Array.isArray(primary) && primary.length > 0) return primary;
+      const legacy = JSON.parse(localStorage.getItem('users') || '[]');
+      return Array.isArray(legacy) ? legacy : [];
     } catch {
       return [];
     }
-  });
-  const navigate = useNavigate();
+  };
+  
+  const saveUsers = (users) => {
+    localStorage.setItem('all_users', JSON.stringify(users));
+    localStorage.setItem('users', JSON.stringify(users));
+  };
+
+  const getProducts = () => {
+    try {
+      const primary = JSON.parse(localStorage.getItem('all_products') || '[]');
+      if (Array.isArray(primary) && primary.length > 0) return primary;
+      const legacy = JSON.parse(localStorage.getItem('allProducts') || '[]');
+      return Array.isArray(legacy) ? legacy : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveProducts = (products) => {
+    localStorage.setItem('all_products', JSON.stringify(products));
+    localStorage.setItem('allProducts', JSON.stringify(products));
+  };
+
+  const refreshOrders = async () => {
+    if (!useBackend) return;
+    try {
+      const { orders } = await backendApi.listOrders();
+      setUser((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, orders: orders || [] };
+        localStorage.setItem('user', JSON.stringify(next));
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const refreshPublicCatalog = async () => {
+    if (!useBackend) return;
+    try {
+      const { items } = await backendApi.listProducts({ limit: 500 });
+      setAllProducts(items || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'user' && !e.newValue) {
-        setUser(null);
-      }
-    };
+    let cancelled = false;
+    const initialToken = localStorage.getItem('token');
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  useEffect(() => {
-    const initAuth = async () => {
+    const fetchData = async () => {
       try {
-        const storedUser = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('token');
-        
-        // Ensure initial admin exists
-        let users = JSON.parse(localStorage.getItem('users') || '[]');
-        const adminExists = users.some(u => u.role === 'admin');
-        
-        if (!adminExists) {
-          const defaultAdmin = {
-            id: 'admin_initial',
-            role: 'admin',
-            fullName: 'مدير نظام توريد نت',
-            phone: '776981756',
-            password: 'admin',
-            createdAt: new Date().toISOString()
-          };
-          users.push(defaultAdmin);
-          localStorage.setItem('users', JSON.stringify(users));
-        }
+          // One-time migrations for legacy localStorage schemas
+          try {
+            const MIG_FLAG = 'migrations.orderStatus_v1';
+            const already = localStorage.getItem(MIG_FLAG);
+            if (!already) {
+              const ORDER_STATUS_ALIASES = { shipped: 'shipping', confirmed: 'processing' };
+              const normalizeOrderStatus = (s) => ORDER_STATUS_ALIASES[s] || s;
 
-        // Seed or refresh global products list
-        let currentAll = JSON.parse(localStorage.getItem('allProducts') || '[]');
-        
-        if (currentAll.length === 0) {
-          const flattened = [];
-          Object.values(DefaultProducts).forEach(categoryGroup => {
-            if (categoryGroup && typeof categoryGroup === 'object') {
-              Object.values(categoryGroup).forEach(productsList => {
-                if (Array.isArray(productsList)) {
-                  flattened.push(...productsList);
+              const migrateOrder = (o) => {
+                if (!o || typeof o !== 'object') return o;
+                const next = { ...o };
+                if (next.status) next.status = normalizeOrderStatus(next.status);
+                return next;
+              };
+
+              const safeParse = (key, fallback) => {
+                try {
+                  const v = JSON.parse(localStorage.getItem(key) || 'null');
+                  return v ?? fallback;
+                } catch {
+                  return fallback;
                 }
-              });
+              };
+
+              const allOrders = safeParse('all_orders', []);
+              if (Array.isArray(allOrders)) {
+                const migrated = allOrders.map(migrateOrder);
+                localStorage.setItem('all_orders', JSON.stringify(migrated));
+              }
+
+              const usersList = safeParse('all_users', []);
+              if (Array.isArray(usersList)) {
+                const migratedUsers = usersList.map((u) => {
+                  if (!u || typeof u !== 'object') return u;
+                  if (!Array.isArray(u.orders)) return u;
+                  return { ...u, orders: u.orders.map(migrateOrder) };
+                });
+                localStorage.setItem('all_users', JSON.stringify(migratedUsers));
+                // keep legacy key in sync if present
+                if (localStorage.getItem('users') !== null) {
+                  localStorage.setItem('users', JSON.stringify(migratedUsers));
+                }
+              }
+
+              localStorage.setItem(MIG_FLAG, new Date().toISOString());
             }
-          });
-          currentAll = flattened;
-        }
-        
-        setAllProducts(currentAll);
-        localStorage.setItem('allProducts', JSON.stringify(currentAll));
-        
-        if (storedUser && storedToken) {
-          const parsedUser = JSON.parse(storedUser);
-          const latestUser = users.find(u => u.id === parsedUser.id);
-          
-          if (latestUser) {
-            setUser(latestUser);
-            localStorage.setItem('user', JSON.stringify(latestUser));
-          } else {
-            setUser(parsedUser);
+          } catch {
+            // ignore migration errors to avoid blocking app startup
           }
+
+          // Unify change requests key (legacy: accountChangeRequests -> change_requests)
+          try {
+            const MIG_FLAG = 'migrations.changeRequests_v1';
+            const already = localStorage.getItem(MIG_FLAG);
+            if (!already) {
+              const safeParse = (key, fallback) => {
+                try {
+                  const v = JSON.parse(localStorage.getItem(key) || 'null');
+                  return v ?? fallback;
+                } catch {
+                  return fallback;
+                }
+              };
+              const legacy = safeParse('accountChangeRequests', []);
+              const current = safeParse('change_requests', []);
+              const legacyArr = Array.isArray(legacy) ? legacy : [];
+              const currentArr = Array.isArray(current) ? current : [];
+              if (legacyArr.length > 0 && currentArr.length === 0) {
+                localStorage.setItem('change_requests', JSON.stringify(legacyArr));
+              }
+              // keep legacy key present for backward compatibility
+              if (localStorage.getItem('accountChangeRequests') !== null) {
+                localStorage.setItem('accountChangeRequests', JSON.stringify(safeParse('change_requests', legacyArr)));
+              }
+              localStorage.setItem(MIG_FLAG, new Date().toISOString());
+            }
+          } catch {}
+
+          // Unify products key (legacy: allProducts -> all_products)
+          try {
+            const MIG_FLAG = 'migrations.productsKey_v1';
+            const already = localStorage.getItem(MIG_FLAG);
+            if (!already) {
+              const safeParse = (key, fallback) => {
+                try {
+                  const v = JSON.parse(localStorage.getItem(key) || 'null');
+                  return v ?? fallback;
+                } catch {
+                  return fallback;
+                }
+              };
+              const legacy = safeParse('allProducts', []);
+              const current = safeParse('all_products', []);
+              const legacyArr = Array.isArray(legacy) ? legacy : [];
+              const currentArr = Array.isArray(current) ? current : [];
+              if (legacyArr.length > 0 && currentArr.length === 0) {
+                localStorage.setItem('all_products', JSON.stringify(legacyArr));
+              }
+              // keep legacy key synced if present
+              if (localStorage.getItem('allProducts') !== null) {
+                localStorage.setItem('allProducts', JSON.stringify(safeParse('all_products', legacyArr)));
+              }
+              localStorage.setItem(MIG_FLAG, new Date().toISOString());
+            }
+          } catch {}
+
+          if (useBackend) {
+            try {
+              const cat = await backendApi.listProducts({ limit: 500 });
+              if (!cancelled) setAllProducts(cat.items || []);
+            } catch (e) {
+              console.warn('تعذر تحميل المنتجات من الخادم:', e);
+              let localProducts = getProducts();
+              if (localProducts.length === 0) {
+                const flattened = [];
+                const source = {
+                  mens: DefaultProducts.mensProducts || {},
+                  womens: DefaultProducts.womensProducts || {}
+                };
+                Object.values(source).forEach((categoryGroup) => {
+                  Object.values(categoryGroup).forEach((productsList) => {
+                    if (Array.isArray(productsList)) flattened.push(...productsList);
+                  });
+                });
+                localProducts = flattened;
+                saveProducts(localProducts);
+              }
+              if (!cancelled) setAllProducts(localProducts);
+            }
+
+            if (initialToken) {
+              try {
+                const data = await backendApi.me();
+                if (cancelled) return;
+                let u = {
+                  ...data.user,
+                  wishlist: data.user.wishlist || [],
+                  orders: data.user.orders || [],
+                  followedStores: data.user.followedStores || [],
+                  products: []
+                };
+                if (u.role === 'seller') {
+                  try {
+                    const sp = await backendApi.listProducts({ sellerId: u.id, limit: 500 });
+                    u.products = sp.items || [];
+                  } catch {
+                    u.products = [];
+                  }
+                }
+                if (u.role === 'customer' || u.role === 'seller') {
+                  try {
+                    const lo = await backendApi.listOrders();
+                    u.orders = lo.orders || [];
+                  } catch {
+                    u.orders = [];
+                  }
+                }
+                setUser(u);
+                localStorage.setItem('user', JSON.stringify(u));
+                setToken(initialToken);
+              } catch {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                if (!cancelled) {
+                  setUser(null);
+                  setToken(null);
+                }
+              }
+            }
+          } else {
+            let localProducts = getProducts();
+            if (localProducts.length === 0) {
+              const flattened = [];
+              const source = {
+                mens: DefaultProducts.mensProducts || {},
+                womens: DefaultProducts.womensProducts || {}
+              };
+              Object.values(source).forEach((categoryGroup) => {
+                Object.values(categoryGroup).forEach((productsList) => {
+                  if (Array.isArray(productsList)) flattened.push(...productsList);
+                });
+              });
+              localProducts = flattened;
+              saveProducts(localProducts);
+            }
+            if (!cancelled) setAllProducts(localProducts);
+
+            try {
+              const saved = localStorage.getItem('user');
+              if (saved) {
+                const parsed = JSON.parse(saved);
+                const users = getUsers();
+                const latestUser = users.find((x) => String(x.id) === String(parsed.id));
+                if (latestUser) {
+                  setUser(latestUser);
+                  localStorage.setItem('user', JSON.stringify(latestUser));
+                }
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        } catch (err) {
+          console.error('Local sync error:', err);
+        } finally {
+          if (!cancelled) setLoading(false);
         }
-      } catch (err) {
-        console.error('Error initializing auth:', err);
-      } finally {
-        setLoading(false);
-      }
+      };
+
+    fetchData();
+    return () => {
+      cancelled = true;
     };
-    initAuth();
   }, []);
 
-  // حساب حالة حساب البائع
+
+
   const getAccountStatus = (targetUser = user) => {
     if (!targetUser || targetUser.role !== 'seller') return null;
     
@@ -172,8 +379,7 @@ export const AuthProvider = ({ children }) => {
     };
   };
 
-  // ترقية باقة البائع
-  const upgradePlan = (planName) => {
+  const upgradePlan = async (planName) => {
     if (!user || user.role !== 'seller') return { success: false, error: 'غير مصرح' };
     const planInfo = PLANS[planName];
     if (!planInfo) return { success: false, error: 'الباقة غير موجودة' };
@@ -181,229 +387,311 @@ export const AuthProvider = ({ children }) => {
     const updatedData = {
       plan: planName,
       isPaid: true,
-      isApproved: true, // المدفوعة تحتاج موافقة إدارية
+      isApproved: true,
       maxProducts: planInfo.maxProducts,
       maxImagesPerProduct: planInfo.maxImagesPerProduct,
       paidAt: new Date().toISOString()
     };
     
-    updateUser(updatedData);
-    addNotification('ترقية الباقة', `تم ترقية حسابك إلى الباقة ${planInfo.name} بنجاح`, 'success');
+    await updateUser(updatedData);
     return { success: true };
   };
 
-  // دالة مساعدة لحفظ اسم المستخدم بشكل صحيح (أول وآخر كلمة فقط للعرض)
-  const getDisplayName = (fullName) => {
-    if (!fullName) return '';
-    const parts = fullName.trim().split(/\s+/);
-    if (parts.length === 1) return fullName;
-    return `${parts[0]} ${parts[parts.length - 1]}`;
-  };
-
-  // التحقق من وجود المستخدم (لمنع تكرار التسجيل)
-  const checkUserExists = (phone, email, storeName) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    if (phone && users.find(u => u.phone === phone)) return 'phone';
-    if (email && users.find(u => u.email === email)) return 'email';
-    if (storeName && users.find(u => u.storeName === storeName)) return 'storeName';
-    return null;
-  };
-
-  // تسجيل عميل جديد
-const registerCustomer = async (userData) => {
-  try {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    
-    if (users.find(u => u.phone === userData.phone)) {
-      return { success: false, error: 'رقم الجوال موجود مسبقاً' };
-    }
-    
-    const displayName = getDisplayName(userData.fullName);
-    
-    const newUser = {
-      id: Date.now(),
-      role: 'customer',
-      fullName: userData.fullName,
-      displayName: displayName,
-      phone: userData.phone,
-      password: userData.password,
-      profileImage: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=c88c23&color=fff`,
-      createdAt: new Date().toISOString(),
-      notifications: [{
-        id: Date.now(),
-        title: 'مرحباً بك',
-        message: `أهلاً بك ${displayName} في توريد نت`,
-        type: 'success',
-        date: new Date().toISOString(),
-        read: false
-      }],
-      orders: [],
-      wishlist: [],
-      followedStores: []
-    };
-    
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    const { password: _, ...userWithoutPassword } = newUser;
-    const fakeToken = 'token-' + Date.now();
-    
-    localStorage.setItem('token', fakeToken);
-    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-    
-    setToken(fakeToken);
-    setUser(userWithoutPassword);
-    
-    return { success: true, user: userWithoutPassword };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
-  // تسجيل بائع جديد
- const registerSeller = async (userData) => {
-  try {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    
-    if (users.find(u => u.phone === userData.phone)) {
-      return { success: false, error: 'رقم الجوال موجود مسبقاً' };
-    }
-    
-    if (userData.email && users.find(u => u.email === userData.email)) {
-      return { success: false, error: 'البريد الإلكتروني موجود مسبقاً' };
-    }
-    
-    if (userData.storeName && users.find(u => u.storeName === userData.storeName)) {
-      return { success: false, error: 'اسم المتجر مستخدم من قِبَل بائع آخر' };
-    }
-    
-    const trialStartDate = new Date().toISOString();
-    const selectedPlan = userData.plan || 'trial';
-    const planInfo = PLANS[selectedPlan];
-    const displayName = getDisplayName(userData.fullName);
-    
-    const newUser = {
-      id: Date.now(),
-      role: 'seller',
-      fullName: userData.fullName,
-      displayName: displayName,
-      phone: userData.phone,
-      email: userData.email || '',
-      password: userData.password,
-      storeName: userData.storeName,
-      storeUrl: userData.storeUrl || '',
-      address: userData.address,
-      createdAt: new Date().toISOString(),
-      trialStartDate,
-      plan: selectedPlan,
-      planDuration: userData.planDuration || 'monthly',
-      isPaid: selectedPlan !== 'trial',
-      isApproved: false, // الجميع يحتاج موافقة إدارية الآن لبدء العمل
-      maxProducts: planInfo.maxProducts,
-      maxImagesPerProduct: planInfo.maxImagesPerProduct,
-      products: [],
-      notifications: [{
-        id: Date.now(),
-        title: 'مرحباً بك',
-        message: `أهلاً بك البائع ${displayName} في توريد نت`,
-        type: 'success',
-        date: new Date().toISOString(),
-        read: false
-      }],
-      wishlist: [],
-      following: [],
-      logo: '', 
-      banner: '',
-      profileImage: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=c88c23&color=fff`,
-      socialLinks: { facebook: '', instagram: '', tiktok: '' },
-      isVacationMode: false,
-      addressDetails: userData.addressDetails || '',
-      storeLocation: userData.storeLocation || { lat: 15.352, lng: 44.207 },
-      businessCategory: userData.businessCategory || '',
-      businessActivity: userData.businessActivity || '',
-      isVerified: false,
-      verificationStatus: 'unverified',
-      verificationDocs: [],
-    };
-    
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    const { password: _, ...userWithoutPassword } = newUser;
-    const fakeToken = 'token-' + Date.now();
-    
-    localStorage.setItem('token', fakeToken);
-    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-    
-    setToken(fakeToken);
-    setUser(userWithoutPassword);
-    
-    return { success: true, user: userWithoutPassword };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
-  // تسجيل الدخول
- const login = async (phone, password) => {
-  try {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const foundUser = users.find(u => u.phone === phone && u.password === password);
-    
-    if (foundUser) {
-      // السماح للبائع بالدخول حتى لو لم يتم تفعيله لكي يرى صفحة التوثيق
-      
-      const { password: _, ...userWithoutPassword } = foundUser;
-      const fakeToken = 'token-' + Date.now();
-      
-      localStorage.setItem('token', fakeToken);
-      localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-      
-      setToken(fakeToken);
-      setUser(userWithoutPassword);
-      
-      return { success: true, user: userWithoutPassword };
-    }
-    
-    return { success: false, error: 'رقم الجوال أو كلمة المرور غير صحيحة' };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-  // تسجيل الدخول عبر Google (محاكاة)
-  const loginWithGoogle = async (credentialResponse, userType = 'customer', additionalData = {}) => {
+  const registerCustomer = async (userData) => {
     try {
-      const fakeUser = {
+      if (useBackend) {
+        try {
+          const data = await backendApi.register({
+            role: 'customer',
+            fullName: userData.fullName,
+            phone: userData.phone,
+            password: userData.password
+          });
+          localStorage.setItem('token', data.token);
+          setToken(data.token);
+          let u = {
+            ...data.user,
+            wishlist: data.user.wishlist || [],
+            orders: [],
+            followedStores: data.user.followedStores || []
+          };
+          try {
+            const lo = await backendApi.listOrders();
+            u.orders = lo.orders || [];
+          } catch {
+            u.orders = [];
+          }
+          setUser(u);
+          localStorage.setItem('user', JSON.stringify(u));
+          return { success: true, user: u };
+        } catch (e) {
+          return { success: false, error: e.message };
+        }
+      }
+
+      const users = getUsers();
+      const existing = users.find(u => u.phone === userData.phone);
+      if (existing) return { success: false, error: 'رقم الجوال موجود مسبقاً' };
+      
+      const parts = userData.fullName.trim().split(/\s+/);
+      const displayName = parts.length === 1 ? userData.fullName : `${parts[0]} ${parts[parts.length - 1]}`;
+      
+      const newUser = {
         id: Date.now(),
-        phone: `google_${Date.now()}`,
-        email: `google_${Date.now()}@gmail.com`,
-        role: userType,
-        fullName: additionalData.fullName || 'مستخدم Google',
-        displayName: additionalData.fullName?.split(' ')[0] || 'مستخدم',
-        ...additionalData
+        role: 'customer',
+        fullName: userData.fullName,
+        displayName: displayName,
+        phone: userData.phone,
+        password: userData.password,
+        profileImage: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=c88c23&color=fff`,
+        createdAt: new Date().toISOString(),
+        notifications: [],
+        orders: [],
+        wishlist: [],
+        followedStores: [],
+        walletBalance: 0
       };
       
-      const fakeToken = 'google-token-' + Date.now();
+      users.push(newUser);
+      saveUsers(users);
       
+      const fakeToken = 'token-' + Date.now();
       localStorage.setItem('token', fakeToken);
-      localStorage.setItem('user', JSON.stringify(fakeUser));
+      localStorage.setItem('user', JSON.stringify(newUser));
       
       setToken(fakeToken);
-      setUser(fakeUser);
+      setUser(newUser);
       
-      return { success: true, user: fakeUser };
+      return { success: true, user: newUser };
     } catch (error) {
+      console.error('Customer registration error:', error);
       return { success: false, error: error.message };
     }
   };
 
-  // تسجيل الدخول عبر Facebook
-  const loginWithFacebook = async (accessToken, userType = 'customer', additionalData = {}) => {
-    return loginWithGoogle(accessToken, userType, additionalData);
+  const registerSeller = async (userData, plan = 'trial', duration = 'monthly') => {
+    try {
+      userData.plan = plan;
+      userData.planDuration = duration;
+
+      if (useBackend) {
+        try {
+          const body = {
+            role: 'seller',
+            plan,
+            planDuration: duration,
+            fullName: userData.fullName,
+            phone: userData.phone,
+            password: userData.password,
+            email: userData.email || '',
+            storeName: userData.storeName,
+            storeUrl: userData.storeUrl || '',
+            businessActivity: userData.businessActivity || '',
+            address: userData.address || {},
+            addressDetails: userData.addressDetails || '',
+            storeLocation: userData.storeLocation || null,
+            deliveryMode: userData.deliveryMode || 'seller',
+            deliveryPricePerKm: Number(userData.deliveryPricePerKm) || 0,
+            storeFrontPhotoUrl: userData.storeFrontPhotoUrl ? String(userData.storeFrontPhotoUrl).slice(0, 1200000) : ''
+          };
+          const data = await backendApi.register(body);
+          localStorage.setItem('token', data.token);
+          setToken(data.token);
+          let u = {
+            ...data.user,
+            wishlist: data.user.wishlist || [],
+            orders: [],
+            followedStores: data.user.followedStores || [],
+            products: []
+          };
+          try {
+            const sp = await backendApi.listProducts({ sellerId: u.id, limit: 500 });
+            u.products = sp.items || [];
+          } catch {
+            u.products = [];
+          }
+          try {
+            const lo = await backendApi.listOrders();
+            u.orders = lo.orders || [];
+          } catch {
+            u.orders = [];
+          }
+          setUser(u);
+          localStorage.setItem('user', JSON.stringify(u));
+          await refreshPublicCatalog();
+          return { success: true, user: u };
+        } catch (e) {
+          return { success: false, error: e.message };
+        }
+      }
+
+      const users = getUsers();
+      const existing = users.find(u => u.phone === userData.phone);
+      if (existing) return { success: false, error: 'رقم الجوال موجود مسبقاً' };
+      
+      const parts = userData.fullName.trim().split(/\s+/);
+      const displayName = parts.length === 1 ? userData.fullName : `${parts[0]} ${parts[parts.length - 1]}`;
+      const planInfo = PLANS[plan || 'trial'];
+      
+      const newUser = {
+        id: Date.now(),
+        role: 'seller',
+        fullName: userData.fullName,
+        displayName: displayName,
+        phone: userData.phone,
+        email: userData.email || '',
+        password: userData.password,
+        storeName: userData.storeName,
+        storeUrl: userData.storeUrl || '',
+        address: userData.address,
+        addressDetails: userData.addressDetails || '',
+        storeLocation: userData.storeLocation || null,
+
+        createdAt: new Date().toISOString(),
+        trialStartDate: new Date().toISOString(),
+        plan: userData.plan || 'trial',
+        isPaid: userData.plan !== 'trial',
+        isApproved: false,
+        maxProducts: planInfo.maxProducts,
+        maxImagesPerProduct: planInfo.maxImagesPerProduct,
+        products: [],
+        notifications: [],
+        logo: '', 
+        banner: '',
+        profileImage: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=c88c23&color=fff`,
+        socialLinks: { facebook: '', instagram: '', tiktok: '' },
+        isVacationMode: false,
+        isVerified: false,
+        verificationStatus: 'unverified',
+        verificationDocs: [],
+        // Delivery design: seller chooses who fulfills delivery.
+        // For now, even platform mode still falls back to seller execution.
+        deliveryMode: userData.deliveryMode || 'seller',
+        deliveryService: 'merchant',
+        hasDelivery: true,
+        deliveryPricePerKm: 0,
+        storeFrontPhotoUrl: userData.storeFrontPhotoUrl || ''
+      };
+      
+      users.push(newUser);
+      saveUsers(users);
+      
+      const fakeToken = 'token-' + Date.now();
+      localStorage.setItem('token', fakeToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      
+      setToken(fakeToken);
+      setUser(newUser);
+      
+      return { success: true, user: newUser };
+    } catch (error) {
+      console.error('Registration function error:', error);
+      return { success: false, error: error.message };
+    }
   };
 
-  // تسجيل الخروج
-  const logout = () => {
+  const login = async (phone, password) => {
+    try {
+      if (useBackend) {
+        try {
+          const data = await backendApi.login(phone, password);
+          localStorage.setItem('token', data.token);
+          setToken(data.token);
+          let u = {
+            ...data.user,
+            wishlist: data.user.wishlist || [],
+            orders: data.user.orders || [],
+            followedStores: data.user.followedStores || [],
+            products: []
+          };
+          if (u.role === 'seller') {
+            try {
+              const sp = await backendApi.listProducts({ sellerId: u.id, limit: 500 });
+              u.products = sp.items || [];
+            } catch {
+              u.products = [];
+            }
+          }
+          if (u.role === 'customer' || u.role === 'seller') {
+            try {
+              const lo = await backendApi.listOrders();
+              u.orders = lo.orders || [];
+            } catch {
+              u.orders = [];
+            }
+          }
+          setUser(u);
+          localStorage.setItem('user', JSON.stringify(u));
+          return { success: true, user: u };
+        } catch (e) {
+          return { success: false, error: e.message };
+        }
+      }
+
+      const users = getUsers();
+      const ADMIN_PHONE = '776981756';
+      const ADMIN_PASSWORD = 'faisala123';
+      let workingUsers = [...users];
+
+      // ضمان وجود حساب الأدمن الافتراضي بدون حذف/تغيير بيانات المستخدمين الآخرين
+      if (String(phone) === ADMIN_PHONE && String(password) === ADMIN_PASSWORD) {
+        const adminIndex = workingUsers.findIndex((u) => String(u.phone) === ADMIN_PHONE);
+        if (adminIndex === -1) {
+          const adminUser = {
+            id: Date.now(),
+            role: 'admin',
+            adminRole: ADMIN_ROLES.SUPER_ADMIN,
+            fullName: 'Admin',
+            username: 'admin',
+            phone: ADMIN_PHONE,
+            password: ADMIN_PASSWORD,
+            notifications: [],
+            orders: [],
+            wishlist: [],
+            followedStores: [],
+            createdAt: new Date().toISOString()
+          };
+          workingUsers.push(adminUser);
+          saveUsers(workingUsers);
+        } else if (workingUsers[adminIndex].role !== 'admin' || String(workingUsers[adminIndex].password) !== ADMIN_PASSWORD) {
+          // تحديث بسيط للحساب الموجود ليطابق بيانات الأدمن المطلوبة
+          workingUsers[adminIndex] = {
+            ...workingUsers[adminIndex],
+            role: 'admin',
+            adminRole: workingUsers[adminIndex].adminRole || ADMIN_ROLES.SUPER_ADMIN,
+            password: ADMIN_PASSWORD,
+            fullName: workingUsers[adminIndex].fullName || 'Admin',
+            username: workingUsers[adminIndex].username || 'admin'
+          };
+          saveUsers(workingUsers);
+        }
+      }
+
+      const foundUser = workingUsers.find(u => String(u.phone) === String(phone));
+      
+      if (foundUser && foundUser.password === password) {
+        const fakeToken = 'token-' + Date.now();
+        localStorage.setItem('token', fakeToken);
+        localStorage.setItem('user', JSON.stringify(foundUser));
+        setToken(fakeToken);
+        setUser(foundUser);
+        return { success: true, user: foundUser };
+      }
+      return { success: false, error: 'رقم الجوال أو كلمة المرور غير صحيحة' };
+    } catch (error) {
+      console.error('Detailed Login Error:', error);
+      return { success: false, error: `خطأ: ${error.message}` };
+    }
+  };
+
+  const logout = async () => {
+    if (useBackend && token) {
+      try {
+        await backendApi.logout();
+      } catch {
+        /* يتم مسح الجلسة محلياً على كل حال */
+      }
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
@@ -411,232 +699,212 @@ const registerCustomer = async (userData) => {
     window.location.href = '/';
   };
 
-  // تحديث بيانات المستخدم
-  const updateUser = (updatedData) => {
+  const updateUser = async (updatedData) => {
+    if (!user) return;
     const updatedUser = { ...user, ...updatedData };
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
-    
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const index = users.findIndex(u => u.id === user.id);
-    if (index !== -1) {
-      users[index] = { ...users[index], ...updatedData };
-      localStorage.setItem('users', JSON.stringify(users));
-    }
-  };
 
-  // استعادة كلمة المرور عبر رقم الجوال
-  const resetPasswordByPhone = async (phone, newPassword) => {
-    try {
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const index = users.findIndex(u => u.phone === phone);
-      
-      if (index === -1) {
-        return { success: false, error: 'رقم الجوال غير مسجل' };
+    if (useBackend) {
+      const patchBody = { ...updatedData };
+      delete patchBody.products;
+      delete patchBody.id;
+      delete patchBody.role;
+      delete patchBody.phone;
+      if (Object.keys(patchBody).length > 0) {
+        try {
+          const { user: serverUser } = await backendApi.patchMe(patchBody);
+          const merged = { ...updatedUser, ...serverUser };
+          setUser(merged);
+          localStorage.setItem('user', JSON.stringify(merged));
+        } catch (e) {
+          console.error(e);
+        }
       }
-      
-      users[index].password = newPassword;
-      localStorage.setItem('users', JSON.stringify(users));
-      
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
+    }
+
+    const users = getUsers();
+    const index = users.findIndex((u) => String(u.id) === String(user.id));
+    if (index !== -1) {
+      users[index] = updatedUser;
+      saveUsers(users);
     }
   };
 
-  // إضافة منتج جديد ومزامنته مع المتجر
-  const addProduct = (productData) => {
+  const addProduct = async (productData) => {
     if (!user || user.role !== 'seller') return { success: false, error: 'غير مصرح' };
-    
     const status = getAccountStatus();
-    if (status.isLocked) return { success: false, error: 'الحساب موقوف بسبب انتهاء التجربة' };
-    
-    // منع إضافة المنتجات إذا لم يكن الحساب موثقاً
-    if (!user.isVerified) {
-      return { success: false, error: 'يرجى توثيق حسابك أولاً (رفع الهوية/الجواز) لتتمكن من إضافة وبيع منتجاتك في المنصة' };
+    if (status.isLocked) return { success: false, error: 'الحساب موقوف' };
+
+    const currentCount = (user.products || []).length;
+    if (currentCount >= status.maxProducts) {
+      return { success: false, error: `لقد وصلت للحد الأقصى من المنتجات في باقتك (${status.maxProducts} منتج). قم بترقية الباقة لإضافة المزيد.` };
     }
-    
-    const currentProducts = user.products || [];
-    if (currentProducts.length >= status.maxProducts) {
-      return { success: false, error: `وصلت للحد الأقصى (${status.maxProducts} منتج) في باقتك الحالية` };
+
+    if (useBackend) {
+      try {
+        const created = await backendApi.createProduct({
+          ...productData,
+          storeName: user.storeName
+        });
+        const { items } = await backendApi.listProducts({ sellerId: user.id, limit: 500 });
+        const nextUser = { ...user, products: items || [] };
+        setUser(nextUser);
+        localStorage.setItem('user', JSON.stringify(nextUser));
+        await refreshPublicCatalog();
+        return { success: true, product: created };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
     }
-    
+
     const newProduct = {
       id: Date.now(),
       sellerId: user.id,
       storeName: user.storeName,
-      storeUrl: user.storeUrl,
-      whatsapp: user.phone,
       ...productData,
-      inStock: productData.stock && parseInt(productData.stock) > 0 ? true : false,
-      isOffer: productData.isOffer || false,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isVisible: productData.isVisible !== undefined ? productData.isVisible : true
+      isVisible: true
     };
     
-    // تحديث منتجات البائع
-    const updatedUserProducts = [newProduct, ...currentProducts];
-    updateUser({ products: updatedUserProducts });
-    
-    // تحديث القائمة العامة (المتجر)
-    const newAllProducts = [newProduct, ...allProducts];
-    setAllProducts(newAllProducts);
-    localStorage.setItem('allProducts', JSON.stringify(newAllProducts));
+    const products = getProducts();
+    products.push(newProduct);
+    saveProducts(products);
+
+    const updatedUserProducts = [newProduct, ...(user.products || [])];
+    await updateUser({ products: updatedUserProducts });
+    setAllProducts(prev => [newProduct, ...prev]);
     
     return { success: true, product: newProduct };
   };
 
-  // تحديث منتج موجود ومزامنته
-  const updateProduct = (productId, updatedData) => {
-    if (!user || user.role !== 'seller') return { success: false, error: 'غير مصرح' };
-    
-    // تحديث في قائمة البائع الشخصية
-    const updatedUserProducts = (user.products || []).map(p => 
-      p.id === productId ? { 
-        ...p, 
-        ...updatedData, 
-        inStock: updatedData.stock !== undefined ? (parseInt(updatedData.stock) > 0) : p.inStock,
-        updatedAt: new Date().toISOString() 
-      } : p
-    );
-    updateUser({ products: updatedUserProducts });
-    
-    // تحديث في القائمة العامة للمتجر
-    const updatedAllProducts = allProducts.map(p => 
-      p.id === productId ? { 
-        ...p, 
-        ...updatedData, 
-        inStock: updatedData.stock !== undefined ? (parseInt(updatedData.stock) > 0) : p.inStock,
-        updatedAt: new Date().toISOString() 
-      } : p
-    );
-    setAllProducts(updatedAllProducts);
-    localStorage.setItem('allProducts', JSON.stringify(updatedAllProducts));
-    
-    return { success: true };
-  };
-
-  // تقديم طلب التوثيق
-  const submitVerification = (docs) => {
-    if (!user || user.role !== 'seller') return { success: false };
-    
-    const updatedData = {
-      verificationStatus: 'pending',
-      verificationDocs: docs, // { docType, files: [...] }
-      verificationSubmittedAt: new Date().toISOString()
-    };
-    
-    updateUser(updatedData);
-    addNotification('طلب توثيق', 'تم استلام مستندات التوثيق الخاصة بك. يتم مراجعتها الآن من قبل الإدارة.', 'info');
-
-    // إرسال إشعار للأدمن
-    const allUsers = JSON.parse(localStorage.getItem('users') || '[]');
-    const adminIndex = allUsers.findIndex(u => u.role === 'admin');
-    if (adminIndex !== -1) {
-      if (!allUsers[adminIndex].notifications) allUsers[adminIndex].notifications = [];
-      allUsers[adminIndex].notifications.unshift({
-        id: Date.now() + 1,
-        title: '🔔 طلب توثيق جديد',
-        message: `قام البائع "${user.storeName}" بتقديم طلب توثيق جديد ومستندات للهوية.`,
-        type: 'warning',
-        date: new Date().toISOString(),
-        read: false
-      });
-      localStorage.setItem('users', JSON.stringify(allUsers));
+  const updateProduct = async (productId, updatedData) => {
+    if (useBackend) {
+      try {
+        await backendApi.updateProduct(productId, updatedData);
+        if (user?.role === 'seller') {
+          const { items } = await backendApi.listProducts({ sellerId: user.id, limit: 500 });
+          const nextUser = { ...user, products: items || [] };
+          setUser(nextUser);
+          localStorage.setItem('user', JSON.stringify(nextUser));
+        }
+        setAllProducts((prev) => prev.map((p) => (String(p.id) === String(productId) ? { ...p, ...updatedData } : p)));
+        await refreshPublicCatalog();
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
     }
 
+    const products = getProducts();
+    const index = products.findIndex(p => p.id === productId);
+    if (index !== -1) {
+      products[index] = { ...products[index], ...updatedData };
+      saveProducts(products);
+    }
+
+    const updatedUserProducts = (user.products || []).map(p => p.id === productId ? { ...p, ...updatedData } : p);
+    await updateUser({ products: updatedUserProducts });
+    setAllProducts(prev => prev.map(p => p.id === productId ? { ...p, ...updatedData } : p));
     return { success: true };
   };
 
-  // حذف منتج
-  const deleteProduct = (productId) => {
-    if (!user || user.role !== 'seller') return { success: false };
-    
+  const deleteProduct = async (productId) => {
+    if (useBackend) {
+      try {
+        await backendApi.deleteProduct(productId);
+        if (user?.role === 'seller') {
+          const { items } = await backendApi.listProducts({ sellerId: user.id, limit: 500 });
+          const nextUser = { ...user, products: items || [] };
+          setUser(nextUser);
+          localStorage.setItem('user', JSON.stringify(nextUser));
+        }
+        setAllProducts((prev) => prev.filter((p) => String(p.id) !== String(productId)));
+        await refreshPublicCatalog();
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
+    let products = getProducts();
+    products = products.filter(p => p.id !== productId);
+    saveProducts(products);
+
     const updatedProducts = (user.products || []).filter(p => p.id !== productId);
-    updateUser({ products: updatedProducts });
-    
-    const newAll = allProducts.filter(p => p.id !== productId);
-    setAllProducts(newAll);
-    localStorage.setItem('allProducts', JSON.stringify(newAll));
+    await updateUser({ products: updatedProducts });
+    setAllProducts(prev => prev.filter(p => p.id !== productId));
     return { success: true };
   };
 
-  // المفضلة
-  const toggleWishlist = (product) => {
-    if (!user) {
-      navigate('/login');
-      return false;
-    }
+  const toggleWishlist = async (product) => {
+    if (!user) { navigate('/login'); return false; }
     const currentWishlist = user.wishlist || [];
     const exists = currentWishlist.find(p => p.id === product.id);
-    let updatedWishlist;
-    
-    if (exists) {
-      updatedWishlist = currentWishlist.filter(p => p.id !== product.id);
-    } else {
-      updatedWishlist = [...currentWishlist, product];
-    }
-    
-    updateUser({ wishlist: updatedWishlist });
+    const updatedWishlist = exists ? currentWishlist.filter(p => p.id !== product.id) : [...currentWishlist, product];
+    await updateUser({ wishlist: updatedWishlist });
     return !exists;
   };
 
-  const isInWishlist = (productId) => {
-    return (user?.wishlist || []).some(p => p.id === productId);
+  const toggleFollowStore = async (store) => {
+    if (!user) { navigate('/login'); return false; }
+    const normalizedStore = { id: store.id || store.name, name: store.name };
+    const currentFollowedStores = user.followedStores || [];
+    const exists = currentFollowedStores.some((s) => String(s.id) === String(normalizedStore.id));
+    const updatedFollowedStores = exists
+      ? currentFollowedStores.filter((s) => String(s.id) !== String(normalizedStore.id))
+      : [...currentFollowedStores, normalizedStore];
+    await updateUser({ followedStores: updatedFollowedStores });
+    return !exists;
   };
 
-  // متابعة المتاجر
-  const toggleFollowStore = (storeData) => {
-    if (!user) {
-      navigate('/login');
-      return;
+  const isFollowingStore = (storeId) =>
+    (user?.followedStores || []).some((s) => String(s.id) === String(storeId));
+
+  const checkUserExists = async (phone) => {
+    if (useBackend) {
+      try {
+        const r = await backendApi.checkPhone(phone);
+        return r.exists ? r.field || 'phone' : null;
+      } catch {
+        return null;
+      }
     }
-    const followed = user.followedStores || [];
-    const exists = followed.find(s => s.id === storeData.id);
-    let updatedFollowed;
-    
-    if (exists) {
-      updatedFollowed = followed.filter(s => s.id !== storeData.id);
-    } else {
-      updatedFollowed = [...followed, storeData];
+    const users = getUsers();
+    return users.some((u) => String(u.phone) === String(phone)) ? 'phone' : null;
+  };
+
+  const resetPasswordByPhone = async (phone, newPassword) => {
+    if (useBackend) {
+      try {
+        await backendApi.resetPasswordPhone(phone, newPassword);
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
     }
-    
-    updateUser({ followedStores: updatedFollowed });
+    const users = getUsers();
+    const index = users.findIndex((u) => String(u.phone) === String(phone));
+    if (index === -1) return { success: false, error: 'المستخدم غير موجود' };
+    users[index] = { ...users[index], password: newPassword };
+    saveUsers(users);
+    if (user && String(user.phone) === String(phone)) {
+      const updatedCurrentUser = { ...user, password: newPassword };
+      setUser(updatedCurrentUser);
+      localStorage.setItem('user', JSON.stringify(updatedCurrentUser));
+    }
+    return { success: true };
   };
 
-  const isFollowingStore = (storeId) => {
-    return (user?.followedStores || []).some(s => s.id === storeId);
-  };
-
-  // الإشعارات
-  const addNotification = (title, message, type = 'info', id = Date.now()) => {
-    const currentNotifications = user?.notifications || [];
-    if (currentNotifications.find(n => n.id === id)) return;
-    
-    const newNotif = { id, title, message, type, date: new Date().toISOString(), read: false };
-    updateUser({ notifications: [newNotif, ...currentNotifications] });
-  };
-
-  const markNotificationAsRead = (id) => {
-    const updated = (user?.notifications || []).map(n => 
-      n.id === id ? { ...n, read: true } : n
+  const markNotificationAsRead = async (notificationId) => {
+    const notifications = (user?.notifications || []).map((n) =>
+      n.id === notificationId ? { ...n, read: true } : n
     );
-    updateUser({ notifications: updated });
+    await updateUser({ notifications });
   };
 
-  const clearNotifications = () => {
-    updateUser({ notifications: [] });
-  };
-
-  // إعادة إرسال الكود
-  const resendVerificationCode = async (phone) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        addNotification('رمز جديد', `تم إعادة إرسال رمز التحقق إلى الرقم ${phone}`, 'success');
-        resolve({ success: true });
-      }, 1500);
-    });
+  const clearNotifications = async () => {
+    await updateUser({ notifications: [] });
   };
 
   const value = {
@@ -644,8 +912,6 @@ const registerCustomer = async (userData) => {
     token,
     loading,
     login,
-    loginWithGoogle,
-    loginWithFacebook,
     registerCustomer,
     registerSeller,
     logout,
@@ -653,30 +919,23 @@ const registerCustomer = async (userData) => {
     addProduct,
     updateProduct,
     deleteProduct,
-    submitVerification,
     getAccountStatus,
-    getSubscriptionStatus: getAccountStatus,
     upgradePlan,
-    allProducts: (allProducts || []).filter(p => {
-      // إذا كان المنتج استاتيكياً (ليس له sellerId) فنعتبره موثقاً افتراضياً أو نعتمد على حقل verified فيه
-      if (!p.sellerId) return true;
-      
-      // إذا كان للمنتج sellerId، نبحث عن البائع في قائمة المستخدمين للتأكد من توثيقه
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const seller = users.find(u => u.id === p.sellerId);
-      return seller && seller.isVerified;
-    }),
+    allProducts,
     toggleWishlist,
-    isInWishlist,
     toggleFollowStore,
     isFollowingStore,
-    addNotification,
+    refreshOrders,
+    refreshPublicCatalog,
+    checkUserExists,
+    resetPasswordByPhone,
     markNotificationAsRead,
     clearNotifications,
-    resendVerificationCode,
-    resetPasswordByPhone,
-    checkUserExists,
-    PLANS,
+    getAdminRole: () => getAdminRole(user),
+    getAdminRoleLabel: () => getAdminRoleLabelFromRbac(user),
+    hasPermission: (permission) => hasPermissionByRole(user, permission),
+    canAccessAdminTab: (tabKey) => canAccessAdminTabByRole(user, tabKey),
+    isInWishlist: (productId) => (user?.wishlist || []).some(p => p.id === productId),
     isAuthenticated: !!user,
     isCustomer: user?.role === 'customer',
     isSeller: user?.role === 'seller',
@@ -685,7 +944,7 @@ const registerCustomer = async (userData) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

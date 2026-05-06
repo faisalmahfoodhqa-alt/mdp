@@ -7,6 +7,7 @@ import {
   BagCheckFill, ClockHistory, BagCheck, ChevronLeft, ArrowRight
 } from 'react-bootstrap-icons';
 import { Link, useNavigate } from 'react-router-dom';
+import { UIButton } from '../shared/components/ui';
 
 const C = {
   primary: '#0a1a3a',
@@ -54,14 +55,18 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
       const reader = new FileReader();
       reader.onloadend = () => {
         const updatedUser = { ...user, profileImage: reader.result };
-        const users = JSON.parse(localStorage.getItem('users') || '[]');
+        const allUsersPrimary = JSON.parse(localStorage.getItem('all_users') || '[]');
+        const users = (Array.isArray(allUsersPrimary) && allUsersPrimary.length > 0)
+          ? allUsersPrimary
+          : (JSON.parse(localStorage.getItem('users') || '[]'));
         const uIdx = users.findIndex(u => u.phone === user.phone);
         if(uIdx > -1) { 
           users[uIdx].profileImage = reader.result; 
-          localStorage.setItem('users', JSON.stringify(users)); 
+          localStorage.setItem('all_users', JSON.stringify(users));
+          localStorage.setItem('users', JSON.stringify(users));
         }
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        window.location.reload();
+        if (updateUser) updateUser({ profileImage: reader.result });
       };
       reader.readAsDataURL(file);
     }
@@ -92,9 +97,9 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
     if (!isMobile) return null;
     return (
       <div style={{ background: C.primary, color: C.white, padding: '20px', paddingBottom: '30px', position: 'relative', borderBottomLeftRadius: '30px', borderBottomRightRadius: '30px', boxShadow: `0 10px 20px rgba(0,0,0,0.1)` }}>
-        <button onClick={() => activeTab === 'menu' ? navigate('/') : setActiveTab('menu')} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', color: C.white, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px', zIndex: 2 }}>
+        <UIButton onClick={() => activeTab === 'menu' ? navigate('/') : setActiveTab('menu')} style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', color: C.white, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px', zIndex: 2 }}>
           <ArrowRight size={24} />
-        </button>
+        </UIButton>
         
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '30px', position: 'relative', zIndex: 1 }}>
           <div style={{ position: 'relative', width: '90px', height: '90px', marginBottom: '15px' }}>
@@ -155,7 +160,7 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
           </div>
         </div>
         
-        <button 
+        <UIButton 
           onClick={() => navigate('/')} 
           style={{ 
             display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 25px', 
@@ -166,7 +171,7 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
           onMouseLeave={(e) => { e.target.style.background = 'transparent'; e.target.style.borderColor = `${C.gold}40`; }}
         >
           الرجوع للرئيسية <ArrowRight size={20} />
-        </button>
+        </UIButton>
       </div>
     );
   };
@@ -190,7 +195,7 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                   const Icon = item.icon;
                   const isActive = activeTab === item.id;
                   return (
-                    <button 
+                    <UIButton 
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
                       style={{
@@ -217,12 +222,12 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                           <ChevronLeft size={16} />
                         </span>
                       </div>
-                    </button>
+                    </UIButton>
                   );
                 })}
               </div>
 
-              <button 
+              <UIButton 
                 onClick={() => { logout(); navigate('/'); }}
                 style={{
                   width: '100%', padding: '15px 20px', background: C.card, border: 'none', borderRadius: '24px',
@@ -234,7 +239,7 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                   <BoxArrowRight size={18} />
                 </div>
                 <span style={{ fontSize: '15px', fontWeight: 'bold', color: C.red }}>تسجيل الخروج</span>
-              </button>
+              </UIButton>
             </div>
           )}
 
@@ -243,9 +248,9 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
             <div style={{ flex: 1, background: C.card, borderRadius: '24px', padding: '25px', boxShadow: '0 5px 20px rgba(0,0,0,0.05)', minHeight: '400px' }}>
               
               {isMobile && (
-                <button onClick={() => setActiveTab('menu')} style={{ background: 'transparent', border: 'none', color: C.primary, fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '20px', cursor: 'pointer' }}>
+                <UIButton onClick={() => setActiveTab('menu')} style={{ background: 'transparent', border: 'none', color: C.primary, fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '20px', cursor: 'pointer' }}>
                   <ChevronLeft size={16} /> عودة للقائمة
-                </button>
+                </UIButton>
               )}
 
               {activeTab === 'profile' && (
@@ -276,7 +281,7 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' }}>
                       {user.wishlist.map(product => (
                         <div key={product.id} style={{ border: `1px solid ${C.border}`, borderRadius: '15px', overflow: 'hidden', position: 'relative' }}>
-                          <Link to={`/product/${product.id}`}>
+                          <Link to={`/product/${product?.id ?? product?.productId ?? product?._id}`}>
                             <img src={product.image} alt={product.name} style={{ width: '100%', height: '150px', objectFit: 'cover' }} />
                           </Link>
                           <div style={{ padding: '10px' }}>
@@ -305,9 +310,9 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                         return (
                         <div key={idx} style={{ display: 'flex', alignItems: 'center', background: `${C.gold}15`, color: C.gold, padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold', fontSize: '13px', gap: '8px' }}>
                           <span>{label}</span>
-                          <button onClick={() => toggleInterest(interest)} style={{ background: 'transparent', border: 'none', color: C.red, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
+                          <UIButton onClick={() => toggleInterest(interest)} style={{ background: 'transparent', border: 'none', color: C.red, cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }}>
                             <span style={{ fontSize: '14px', fontWeight: 'bold' }}>✕</span>
-                          </button>
+                          </UIButton>
                         </div>
                         )
                       })}
@@ -317,29 +322,52 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                   <h3 style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: '15px', marginBottom: '20px', color: C.primary, marginTop: '20px' }}>إضافة اهتمامات أخرى</h3>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                     {ALL_INTERESTS.filter(i => !(user.interests || []).includes(i.id)).map((interest, idx) => (
-                      <button key={idx} onClick={() => toggleInterest(interest.id)} style={{ background: '#f5f5f5', border: `1px solid ${C.border}`, color: C.text, padding: '8px 15px', borderRadius: '20px', cursor: 'pointer', transition: '0.2s', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <UIButton key={idx} onClick={() => toggleInterest(interest.id)} style={{ background: '#f5f5f5', border: `1px solid ${C.border}`, color: C.text, padding: '8px 15px', borderRadius: '20px', cursor: 'pointer', transition: '0.2s', display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <span style={{ fontSize: '16px', fontWeight: 'bold', color: C.gold }}>+</span> {interest.name}
-                      </button>
+                      </UIButton>
                     ))}
                   </div>
                 </div>
               )}
 
-              {activeTab === 'recent' && (
+              {activeTab === 'recent' && (() => {
+                const recentProducts = (() => { try { return JSON.parse(localStorage.getItem('recently_viewed_products') || '[]'); } catch { return []; } })();
+                return (
                 <div>
-                  <h3 style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: '15px', marginBottom: '20px', color: C.primary }}>منتجات زرتها سابقاً</h3>
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
-                     <ClockHistory size={40} style={{ opacity: 0.2, marginBottom: '10px' }} />
-                     <p>لا توجد منتجات تم زيارتها مؤخراً</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${C.border}`, paddingBottom: '15px', marginBottom: '20px' }}>
+                    <h3 style={{ margin: 0, color: C.primary }}>منتجات زرتها سابقاً</h3>
+                    {recentProducts.length > 0 && (
+                      <UIButton onClick={() => { localStorage.removeItem('recently_viewed_products'); setActiveTab('menu'); setTimeout(() => setActiveTab('recent'), 50); }} style={{ background: 'transparent', border: 'none', color: C.red, cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>مسح السجل</UIButton>
+                    )}
                   </div>
+                  {recentProducts.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                       <ClockHistory size={40} style={{ opacity: 0.2, marginBottom: '10px' }} />
+                       <p>لا توجد منتجات تم زيارتها مؤخراً</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '15px' }}>
+                      {recentProducts.map(product => (
+                        <Link key={product.id} to={`/product/${product.id}`} style={{ textDecoration: 'none', color: 'inherit', border: `1px solid ${C.border}`, borderRadius: '15px', overflow: 'hidden', background: '#fff', transition: 'box-shadow 0.2s' }}>
+                          <img src={product.image || 'https://via.placeholder.com/200'} alt={product.name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+                          <div style={{ padding: '10px' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '5px', color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
+                            <div style={{ color: C.gold, fontWeight: 'bold', fontSize: '14px' }}>{(product.price || 0).toLocaleString()} ريال</div>
+                            {product.storeName && <div style={{ fontSize: '11px', color: C.gray, marginTop: '3px' }}>🏪 {product.storeName}</div>}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+                );
+              })()}
 
               {activeTab === 'notifications' && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${C.border}`, paddingBottom: '15px', marginBottom: '20px' }}>
                      <h3 style={{ margin: 0, color: C.primary }}>الإشعارات</h3>
-                     <button onClick={clearNotifications} style={{ background: 'transparent', border: 'none', color: C.red, cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>مسح الكل</button>
+                     <UIButton onClick={clearNotifications} style={{ background: 'transparent', border: 'none', color: C.red, cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>مسح الكل</UIButton>
                   </div>
                   {(!user.notifications || user.notifications.length === 0) ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
@@ -377,18 +405,18 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                    ) : (
                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div style={{ display: 'flex', gap: '10px', marginBottom: '5px' }}>
-                          <button 
+                          <UIButton 
                              onClick={() => setOrderTypeTab('current')} 
                              style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', border: `1px solid ${orderTypeTab === 'current' ? C.primary : C.border}`, background: orderTypeTab === 'current' ? C.primary : C.card, color: orderTypeTab === 'current' ? 'white' : C.text, cursor: 'pointer', transition: '0.2s', fontSize: '14px' }}
                           >
                              الطلبات الحالية
-                          </button>
-                          <button 
+                          </UIButton>
+                          <UIButton 
                              onClick={() => setOrderTypeTab('past')} 
                              style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', border: `1px solid ${orderTypeTab === 'past' ? C.primary : C.border}`, background: orderTypeTab === 'past' ? C.primary : C.card, color: orderTypeTab === 'past' ? 'white' : C.text, cursor: 'pointer', transition: '0.2s', fontSize: '14px' }}
                           >
                              الطلبات السابقة
-                          </button>
+                          </UIButton>
                         </div>
                         
                         {(() => {
@@ -408,8 +436,9 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                                const status = order.status || 'pending';
                                const statusColors = {
                                  pending: { bg: '#fff9e6', text: '#856404', label: 'قيد الانتظار' },
+                                 pending_payment: { bg: '#fdf2e9', text: '#d35400', label: 'بانتظار تأكيد الدفع' },
                                  processing: { bg: '#eef2ff', text: '#3730a3', label: 'جاري التجهيز' },
-                                 shipped: { bg: '#ecfdf5', text: '#065f46', label: 'جاري التوصيل' },
+                                 shipping: { bg: '#ecfdf5', text: '#065f46', label: 'جاري التوصيل' },
                                  delivered: { bg: '#f0fdf4', text: '#166534', label: 'تم التسليم ✓' },
                                  cancelled: { bg: '#fef2f2', text: '#991b1b', label: 'ملغي' }
                                };
@@ -457,9 +486,22 @@ const { user, logout, markNotificationAsRead, clearNotifications, updateUser } =
                                        </div>
                                        <div style={{ display: 'flex', gap: '10px' }}>
                                           {/* تم حذف زر الواتساب بناءً على طلبكم */}
-                                          <button onClick={() => navigate(`/order-details/${order.id}`)} style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.text, padding: '8px 15px', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                          <UIButton onClick={() => navigate(`/order-details/${order.id}`)} style={{ background: 'transparent', border: `1px solid ${C.border}`, color: C.text, padding: '8px 15px', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}>
                                             تفاصيل الطلب
-                                          </button>
+                                          </UIButton>
+                                          {orderTypeTab === 'past' && order.status === 'delivered' && order.items?.[0] && (
+                                            <UIButton
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const firstItem = order.items[0];
+                                                const resolvedId = firstItem?.id ?? firstItem?.productId ?? firstItem?._id;
+                                                if (resolvedId) navigate(`/product/${resolvedId}`);
+                                              }}
+                                              style={{ background: `${C.gold}15`, border: `1px solid ${C.gold}40`, color: C.gold, padding: '8px 15px', borderRadius: '10px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' }}
+                                            >
+                                              قيّم المنتج
+                                            </UIButton>
+                                          )}
                                        </div>
                                     </div>
                                  </div>

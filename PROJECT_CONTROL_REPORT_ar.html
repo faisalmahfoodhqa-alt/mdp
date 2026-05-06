@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>تقرير — منصّة توريد نت (الويب والـ API)</title>
+  <meta name="color-scheme" content="dark" />
+  <style>
+    :root { --bg: #121a33; --card: #1a2545; --border: rgba(200,140,35,.45); --gold: #e8b84a; --gold-dim: #c88c23; --text: #e9ecf4; --muted: #9aa7c7; --code-bg: rgba(0,0,0,.35); }
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; line-height: 1.68; margin: 0; padding: 28px 36px 48px;
+      background: radial-gradient(1200px 800px at 100% -10%, #1c3058 0%, var(--bg) 55%); color: var(--text);
+      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h1 { font-size: 1.65rem; color: var(--gold); border-bottom: 3px solid var(--gold-dim); padding-bottom: 12px; margin: 0 0 .5em; }
+    h2 { font-size: 1.15rem; color: var(--gold); margin: 1.8em 0 .55em; border-right: 4px solid var(--gold-dim); padding-right: 12px; }
+    p { margin: .55em 0; max-width: 100ch; }
+    table { border-collapse: collapse; width: 100%; margin: .85em 0 1em; font-size: .89rem; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    th, td { border-bottom: 1px solid rgba(200,140,35,.22); padding: 9px 11px; text-align: right; vertical-align: top; }
+    th { background: linear-gradient(180deg,#243562,#1a2a4f); color: #fff; font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: .84rem; direction: ltr; unicode-bidi: embed; color: #a8d4ff; border: 1px solid rgba(255,255,255,.08); }
+    .meta { color: var(--muted); margin-bottom: 1.25em; padding: 14px 16px; background: #0f2742; border-radius: 10px; border: 1px solid var(--border); }
+    .note { background: rgba(232,184,74,.08); border: 1px solid rgba(232,184,74,.35); border-radius: 10px; padding: 12px 14px; margin: 1em 0; }
+    .diagram { margin: 1em 0; padding: 16px; background: linear-gradient(145deg,#152042,#0f1a38); border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; }
+    .diagram svg { display: block; margin: 0 auto; max-width: 100%; }
+    @media print { body { padding: 10mm 12mm; } h2 { page-break-after: avoid; } }
+  </style>
+</head>
+<body>
+
+<h1>تقرير — منصّة «توريد نت» (الويب + REST API)</h1>
+
+<div class="meta">
+  <strong>التاريخ:</strong> 5 مايو 2026 &nbsp;|&nbsp; <strong>النطاق:</strong> هذا المستودع فقط (React + Express + MongoDB).<br />
+  لا يتضمن أي تطبيق جوال خارج شيفرة هذه المنصّة.
+</div>
+
+<div class="note">
+  تم تحديث التقرير ليعكس عمل المنصّة كمنتج ويب واحد؛ أُزيلت الإشارات إلى تطبيقات منفصلة أو تكاملات جوال لا تندرج ضمن هذا المستودع.
+</div>
+
+<h2>1 — مخطط مبسّط (المنصّة فقط)</h2>
+<div class="diagram" aria-label="مخطط">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" role="img">
+    <title>معمارية منصّة توريد نت</title>
+    <defs>
+      <linearGradient id="gb" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2a3f73"/><stop offset="100%" stop-color="#162447"/></linearGradient>
+      <filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity=".35"/></filter>
+      <marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#e8b84a"/></marker>
+    </defs>
+    <rect width="720" height="220" rx="12" fill="rgba(255,255,255,.02)"/>
+    <g filter="url(#sh)">
+      <rect x="40" y="50" width="200" height="120" rx="10" fill="url(#gb)" stroke="#c88c23" stroke-width="2"/>
+      <text x="140" y="95" fill="#e8b84a" font-size="16" font-weight="700" text-anchor="middle" font-family="Segoe UI,sans-serif">واجهة الويب</text>
+      <text x="140" y="120" fill="#cdd6ee" font-size="12" text-anchor="middle">React · Vite · Axios</text>
+      <text x="140" y="142" fill="#cdd6ee" font-size="12" text-anchor="middle">JWT · لوحة أدمن / بائع / عميل</text>
+    </g>
+    <g filter="url(#sh)">
+      <rect x="260" y="50" width="200" height="120" rx="10" fill="url(#gb)" stroke="#58a6ff" stroke-width="2"/>
+      <text x="360" y="95" fill="#8bdcff" font-size="16" font-weight="700" text-anchor="middle">API v1</text>
+      <text x="360" y="120" fill="#cdd6ee" font-size="12" text-anchor="middle">Express · RBAC · JWT</text>
+      <text x="360" y="142" fill="#cdd6ee" font-size="12" text-anchor="middle">/api/v1</text>
+    </g>
+    <g filter="url(#sh)">
+      <rect x="480" y="50" width="200" height="120" rx="10" fill="url(#gb)" stroke="#3fb950" stroke-width="2"/>
+      <text x="580" y="95" fill="#7dff9a" font-size="16" font-weight="700" text-anchor="middle">MongoDB</text>
+      <text x="580" y="120" fill="#cdd6ee" font-size="12" text-anchor="middle">Users · Products · Orders</text>
+      <text x="580" y="142" fill="#cdd6ee" font-size="12" text-anchor="middle">إعدادات وطلبات</text>
+    </g>
+    <path d="M243 112 L253 112" stroke="#e8b84a" stroke-width="3" marker-end="url(#a)"/>
+    <path d="M463 112 L473 112" stroke="#58a6ff" stroke-width="3" marker-end="url(#a)"/>
+  </svg>
+</div>
+
+<h2>2 — أدوار داخل المنصّة</h2>
+<table>
+  <thead><tr><th>الدور</th><th>المكان</th></tr></thead>
+  <tbody>
+    <tr><td>عميل</td><td>الموقع — تسوق، سلة، طلبات.</td></tr>
+    <tr><td>بائع</td><td>لوحة البائع — منتجات، شحن، إعدادات المتجر.</td></tr>
+    <tr><td>إدارة</td><td>لوحة الأدمن — مستخدمين، إعدادات، مزامنات ضمن الصلاحيات.</td></tr>
+    <tr><td>مشرف توصيل المنصّة</td><td>نفس لوحة الويب — تبويب طابور «توصيل توريد نت» (صلاحيات محددة).</td></tr>
+  </tbody>
+</table>
+
+<h2>3 — نقاط مهمة تشغيلية</h2>
+<ul>
+  <li>يشترط تشغيل <strong>MongoDB</strong> لتشغيل الـ API (انظر <code>MONGODB_URI</code> و<code>backend/.env.example</code>).</li>
+  <li>في التطوير يوجِّه Vite طلبات <code>/api</code> إلى الباك اند (انظر <code>vite.config.js</code>).</li>
+  <li>قد يكون هناك احتياط <code>localStorage</code> في الواجهة؛ الإنتاج يستفيد من توحيد المصدر مع الـ API.</li>
+</ul>
+
+<h2>4 — مراجع</h2>
+<p>التفاصيل الكاملة في <code>PROJECT_CONTROL_REPORT_ar.md</code> و<code>backend/docs/</code>.</p>
+
+<p style="margin-top:2rem;color:var(--muted);font-size:.82rem;border-top:1px dashed var(--border);padding-top:1rem;">مُحدَّث ليشمل منصّة الويب والـ API فقط — دون أي فرض لتطبيق جوال خارج هذا المستودع.</p>
+</body>
+</html>

@@ -1,27 +1,41 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PersonBadge, CheckCircleFill, CloudUpload, ShieldExclamation, Clock, XCircle } from 'react-bootstrap-icons';
 import { C, compressImage } from './constants';
+import { UIButton } from '../../../shared/components/ui';
 
 export const VerificationPage = ({ user, submitVerification }) => {
   const [files, setFiles] = useState(user.verificationDocs?.files || []);
   const [docType, setDocType] = useState(user.verificationDocs?.docType || 'id');
-  const [uploading, setUploading] = useState(false);
+  const [storeFrontPhoto, setStoreFrontPhoto] = useState(user.storeFrontPhotoUrl || '');
   const fileRef = useRef();
+  const storeFrontRef = useRef();
   const activeUpload = useRef(null);
+
+  useEffect(() => {
+    setStoreFrontPhoto(user.storeFrontPhotoUrl || '');
+  }, [user.storeFrontPhotoUrl]);
 
   const colors = { border: '#e8ecf0', gray: '#888', primary: '#0a1a3a' };
 
   const handleFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setUploading(true);
-    const base64 = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
     const type = activeUpload.current;
-    setFiles(prev => {
-      const filtered = prev.filter(f => f.type !== type);
-      return [...filtered, { name: file.name, url: base64, date: new Date().toISOString(), type }];
-    });
-    setUploading(false);
+    try {
+      const base64 = await compressImage(file, {
+        maxWidth: 1400,
+        maxHeight: 1400,
+        maxBytes: 480 * 1024,
+      });
+      setFiles(prev => {
+        const filtered = prev.filter(f => f.type !== type);
+        return [...filtered, { name: file.name, url: base64, date: new Date().toISOString(), type }];
+      });
+    } catch (err) {
+      alert(err?.message || 'تعذّر ضغط الصورة.');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const removeFile = (index) => setFiles(prev => prev.filter((_, i) => i !== index));
@@ -35,7 +49,9 @@ export const VerificationPage = ({ user, submitVerification }) => {
           <PersonBadge size={35} color={C.gold} />
         </div>
         <h2 style={{ color: C.text, margin: 0 }}>توثيق حساب البائع</h2>
-        <p style={{ color: C.gray, fontSize: '14px', marginTop: '10px' }}>قم برفع وثيقة إثبات الهوية (بطاقة شخصية أو جواز سفر) لتوثيق متجرك.</p>
+        <p style={{ color: C.gray, fontSize: '14px', marginTop: '10px' }}>
+          ارفع وثيقة الهوية (بطاقة أو جواز) ثم صورة واجهة المحل في نفس الخطوة قبل إرسال طلب التوثيق.
+        </p>
       </div>
 
       <div style={{ background: C.bg, padding: '20px', borderRadius: '15px', marginBottom: '25px', border: `1px solid ${C.border}` }}>
@@ -58,14 +74,14 @@ export const VerificationPage = ({ user, submitVerification }) => {
           <div style={{ marginBottom: '25px' }}>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '10px' }}>نوع الوثيقة</label>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-               <button 
+               <UIButton 
                   onClick={() => { setDocType('id'); setFiles([]); }} 
                   style={{ flex: 1, padding: '10px', borderRadius: '10px', border: `2px solid ${docType === 'id' ? C.gold : colors.border}`, background: docType === 'id' ? `${C.gold}10` : 'transparent', color: docType === 'id' ? C.primary : colors.gray, fontWeight: 'bold', cursor: 'pointer' }}
-               >بطاقة شخصية</button>
-               <button 
+               >بطاقة شخصية</UIButton>
+               <UIButton 
                   onClick={() => { setDocType('passport'); setFiles([]); }} 
                   style={{ flex: 1, padding: '10px', borderRadius: '10px', border: `2px solid ${docType === 'passport' ? C.gold : colors.border}`, background: docType === 'passport' ? `${C.gold}10` : 'transparent', color: docType === 'passport' ? C.primary : colors.gray, fontWeight: 'bold', cursor: 'pointer' }}
-               >جواز سفر</button>
+               >جواز سفر</UIButton>
             </div>
 
             {docType === 'id' ? (
@@ -100,23 +116,90 @@ export const VerificationPage = ({ user, submitVerification }) => {
             <input type="file" ref={fileRef} hidden accept="image/*" onChange={handleFile} />
           </div>
 
+          <div style={{ marginBottom: '25px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>
+              صورة واجهة المحل <span style={{ fontWeight: 600, color: C.gray, fontSize: '12px' }}>(مع التوثيق)</span>
+            </label>
+            <p style={{ fontSize: '12px', color: C.gray, margin: '0 0 12px', lineHeight: 1.6 }}>
+              تُرفَع هنا ضمن خطوة التوثيق، وتُستخدم للتعرّف على موقع المتجر ظاهرياً.
+            </p>
+            <div
+              role="presentation"
+              onClick={() => status !== 'pending' && storeFrontRef.current?.click()}
+              style={{
+                border: `2px dashed ${C.gold}30`,
+                borderRadius: '12px',
+                padding: '24px',
+                textAlign: 'center',
+                cursor: status === 'pending' ? 'default' : 'pointer',
+                background: C.white,
+                opacity: status === 'pending' ? 0.7 : 1,
+              }}
+            >
+              {storeFrontPhoto ? (
+                <img src={storeFrontPhoto} style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }} alt="واجهة المحل" />
+              ) : (
+                <>
+                  <CloudUpload size={28} color={C.gold} style={{ marginBottom: '8px' }} />
+                  <div style={{ fontSize: '12px', color: C.gray }}>رفع صورة للواجهة الخارجية للمحل</div>
+                </>
+              )}
+            </div>
+            <input type="file" ref={storeFrontRef} hidden accept="image/*" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                const base64 = await compressImage(file, { maxWidth: 1400, maxHeight: 1400, maxBytes: 480 * 1024 });
+                setStoreFrontPhoto(base64);
+              } catch (err) {
+                alert(err?.message || 'تعذّر ضغط الصورة.');
+              } finally {
+                e.target.value = '';
+              }
+            }} />
+            {Boolean(storeFrontPhoto) && status !== 'pending' && (
+              <UIButton
+                type="button"
+                onClick={() => setStoreFrontPhoto('')}
+                style={{
+                  marginTop: '10px',
+                  padding: '8px 14px',
+                  background: 'transparent',
+                  border: `1px solid ${C.sidebar}44`,
+                  borderRadius: '10px',
+                  color: C.text,
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                إزالة صورة الواجهة
+              </UIButton>
+            )}
+          </div>
+
           {status === 'pending' ? (
             <div style={{ textAlign: 'center', padding: '20px', background: `${C.orange}10`, borderRadius: '12px', border: `1px solid ${C.orange}30`, color: C.orange, fontWeight: 'bold' }}>
               ⏳ طلبك قيد المراجعة حالياً، سنقوم بإبلاغك فور اعتماد حسابك.
             </div>
           ) : (
-            <button 
+            <UIButton 
               onClick={() => {
                 const required = docType === 'id' ? ['front', 'back'] : ['passport'];
                 const hasAll = required.every(r => files.find(f => f.type === r));
                 if (!hasAll) { alert('يرجى رفع جميع الصور المطلوبة أولاً'); return; }
-                submitVerification({ docType, files });
+                const storefrontFinal = (storeFrontPhoto || user.storeFrontPhotoUrl || '').trim();
+                if (!storefrontFinal?.trim()) {
+                  alert('يرجى رفع صورة واجهة المحل مع مستند التوثيق قبل الإرسال.');
+                  return;
+                }
+                submitVerification({ docType, files, storeFrontPhotoUrl: storefrontFinal });
               }}
               style={{
                 width: '100%', padding: '15px', background: C.sidebar, color: C.gold, border: 'none', borderRadius: '12px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer', boxShadow: `0 5px 15px ${C.sidebar}40`
               }}>
               إرسال طلب التوثيق للإدارة
-            </button>
+            </UIButton>
           )}
 
           {status === 'rejected' && (
@@ -171,14 +254,14 @@ export const VerificationBanner = ({ user, setPage }) => {
         <b style={{ fontSize: '15px', display: 'block' }}>{current.title}</b>
         <div style={{ fontSize: '12px', opacity: 0.9 }}>{current.desc}</div>
       </div>
-      <button 
+      <UIButton 
         onClick={() => setPage('verification')}
         style={{
           background: C.white, color: C.text, padding: '8px 16px',
           borderRadius: '10px', fontWeight: '700', fontSize: '12px', border: 'none', cursor: 'pointer'
         }}>
         {current.btn}
-      </button>
+      </UIButton>
     </div>
   );
 };

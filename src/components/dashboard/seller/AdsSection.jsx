@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { MegaphoneFill, Megaphone } from 'react-bootstrap-icons';
 import { C } from './constants';
+import { UIButton } from '../../../shared/components/ui';
+import { useBackend } from '../../../config/backend';
+import { backendApi } from '../../../api/backendApi';
 
 const AD_TYPES = [
   { key: 'featured', label: 'منتج مميز ⭐', desc: 'يظهر في قسم المنتجات المميزة في الصفحة الرئيسية', color: '#f1c40f' },
-  { key: 'offer',    label: 'روج منتجاتك في الإعلانات 🔥',  desc: 'يظهر في شريط عروض اليوم بالصفحة الرئيسية', color: '#e74c3c' },
+  { key: 'slider',   label: 'إعلان في السلايدر الرئيسي 📢', desc: 'يظهر كبانر إعلاني في السلايدر الرئيسي بالصفحة الرئيسية', color: '#e74c3c' },
 ];
 
 export const AdsSection = ({ user, products, updateUser }) => {
@@ -29,12 +32,11 @@ export const AdsSection = ({ user, products, updateUser }) => {
   const reload = () =>
     setMyRequests(JSON.parse(localStorage.getItem('adRequests') || '[]').filter(r => r.sellerId === user.id));
 
-  const submitRequest = () => {
+  const submitRequest = async () => {
     if (!selProduct) { alert('اختر منتجاً'); return; }
     const product = products.find(p => String(p.id) === String(selProduct));
     if (!product) return;
     const all = JSON.parse(localStorage.getItem('adRequests') || '[]');
-    // منع إرسال طلب مكرر لنفس المنتج
     if (all.find(r => r.productId === product.id && r.sellerId === user.id && r.status === 'pending')) {
       alert('لديك طلب معلق لهذا المنتج، انتظر حتى يتم مراجعته.'); return;
     }
@@ -54,6 +56,14 @@ export const AdsSection = ({ user, products, updateUser }) => {
       status: 'pending',
       createdAt: new Date().toISOString(),
     };
+    if (useBackend) {
+      try {
+        await backendApi.sellerAdRequest(req);
+      } catch (e) {
+        alert(e.message || 'تعذر إرسال الطلب');
+        return;
+      }
+    }
     all.push(req);
     localStorage.setItem('adRequests', JSON.stringify(all));
     reload();
@@ -135,13 +145,13 @@ export const AdsSection = ({ user, products, updateUser }) => {
             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
         </div>
 
-        <button onClick={submitRequest} style={{
+        <UIButton onClick={submitRequest} style={{
           padding: '13px 32px', background: `linear-gradient(135deg, ${C.gold}, ${C.goldLight})`,
           border: 'none', borderRadius: 12, color: C.sidebar, fontWeight: 700, fontSize: 15, cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 8
         }}>
           <Megaphone size={16} /> إرسال الطلب للإدارة
-        </button>
+        </UIButton>
       </div>
 
       {/* الطلبات السابقة */}
@@ -162,7 +172,7 @@ export const AdsSection = ({ user, products, updateUser }) => {
                   <div style={{ flex: 1, minWidth: 140 }}>
                     <div style={{ fontWeight: 700, color: C.text, fontSize: 14 }}>{req.productName}</div>
                     <div style={{ fontSize: 12, color: C.gray }}>
-                      {req.adType === 'featured' ? '⭐ منتج مميز' : '🔥 عرض اليوم'}
+                      {req.adType === 'featured' ? '⭐ منتج مميز' : '📢 إعلان سلايدر'}
                       {' · '}{new Date(req.createdAt).toLocaleDateString('ar-YE')}
                     </div>
                     {req.adminNote && <div style={{ fontSize: 12, color: info.color, marginTop: 4 }}>💬 {req.adminNote}</div>}

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { House, TagFill, Cart3, Headset, Grid3x3Gap } from 'react-bootstrap-icons';
+import { House, TagFill, Cart3, Headset, Grid3x3Gap, BagCheckFill } from 'react-bootstrap-icons';
+import { useAuth } from '../../context/AuthContext';
 
 import { useCart } from '../../context/CartContext';
 
 const MobileBottomNav = () => {
   const { getCartCount } = useCart();
+  const { isAuthenticated, isSeller } = useAuth();
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
 
@@ -35,6 +37,7 @@ const MobileBottomNav = () => {
     { name: 'الأقسام', icon: Grid3x3Gap, path: '/departments' },
     { name: 'السلة', icon: Cart3, path: '/cart', isCart: true },
     { name: 'العروض', icon: TagFill, path: '/offers' },
+    ...(isAuthenticated ? [{ name: 'طلباتي', icon: BagCheckFill, path: isSeller ? '/seller/dashboard' : '/orders' }] : []),
     { name: 'تواصل', icon: Headset, path: '/contact' }
   ];
 
@@ -70,7 +73,7 @@ const MobileBottomNav = () => {
               justifyContent: 'center',
               textDecoration: 'none',
               color: isActive ? colors.gold : `${colors.white}AA`,
-              width: '20%',
+              width: `${100 / navItems.length}%`,
               gap: '4px',
               transition: 'all 0.3s'
             }}
@@ -116,8 +119,8 @@ const MobileBottomNav = () => {
               {item.name}
             </span>
           </Link>
-        )}
-      )}
+        );
+      })}
     </div>
   );
 };

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Crosshair, GeoAlt, Check2Circle, PinMap } from 'react-bootstrap-icons';
+import { UIButton } from '../../shared/components/ui';
 
 // مفتاح Google Maps - ضع مفتاحك هنا
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
-const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد الموقع على الخريطة" }) => {
+const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد الموقع على الخريطة", edgeToEdgeMap = false }) => {
   const SANAA_DEFAULT = { lat: 15.3694, lng: 44.1910 };
   const [coords, setCoords] = useState(() => {
     if (initialLocation && typeof initialLocation.lat === 'number' && typeof initialLocation.lng === 'number') {
@@ -28,6 +29,9 @@ const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد ا�
     border: '#e8ecf0',
     bg: '#f0f2f7'
   };
+
+  const gutterX = 'clamp(10px, 4vw, 22px)';
+  const mapRadius = edgeToEdgeMap ? 0 : 16;
 
   // تحميل خريطة جوجل API مع معالجة الخطأ
   useEffect(() => {
@@ -103,8 +107,9 @@ const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد ا�
         streetViewControl: false,
         fullscreenControl: false,
         zoomControl: false,
-        gestureHandling: 'greedy'
+        gestureHandling: 'cooperative' // السماح بتمرير الصفحة بإصبع واحد وتحريك الخريطة بإصبعين
       });
+
 
       // إضافة Marker (دبوس) قابل للسحب
       markerRef.current = new window.google.maps.Marker({
@@ -221,9 +226,9 @@ const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد ا�
         <div style={{ color: colors.gold, marginBottom: '15px' }}><PinMap size={48} /></div>
         <h3>عذراً، تعذر تحميل الخريطة</h3>
         <p>يرجى التحقق من اتصال الإنترنت أو المحاولة لاحقاً</p>
-        <button onClick={() => window.location.reload()} style={{ background: colors.gold, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', marginTop: '10px' }}>
+        <UIButton onClick={() => window.location.reload()} style={{ background: colors.gold, color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', marginTop: '10px' }}>
           إعادة المحاولة
-        </button>
+        </UIButton>
       </div>
     );
   }
@@ -231,8 +236,8 @@ const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد ا�
   return (
     <div style={{ width: '100%', direction: 'rtl', boxSizing: 'border-box' }}>
       {/* زر تحديد الموقع الحالي */}
-      <div style={{ padding: '0 0 15px 0', display: 'flex', justifyContent: 'flex-end' }}>
-        <button
+      <div style={{ padding: edgeToEdgeMap ? `0 ${gutterX} 15px` : '0 0 15px 0', display: 'flex', justifyContent: 'flex-end' }}>
+        <UIButton
           type="button"
           onClick={getCurrentLocation}
           style={{
@@ -249,15 +254,15 @@ const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد ا�
           }}
         >
           <Crosshair size={18} /> 📍 تحديد موقعي الحالي
-        </button>
+        </UIButton>
       </div>
 
       {/* الخريطة التفاعلية */}
       <div style={{
         margin: '0',
-        borderRadius: '16px',
+        borderRadius: mapRadius,
         overflow: 'hidden',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+        boxShadow: edgeToEdgeMap ? 'none' : '0 4px 20px rgba(0,0,0,0.2)',
         height: '450px',
         position: 'relative'
       }}>
@@ -274,7 +279,7 @@ const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد ا�
             alignItems: 'center',
             justifyContent: 'center',
             color: '#c88c23',
-            borderRadius: '16px',
+            borderRadius: mapRadius,
             flexDirection: 'column',
             gap: '10px'
           }}>
@@ -290,3 +295,6 @@ const LocationPicker = ({ onLocationSelect, initialLocation, label = "حدد ا�
 };
 
 export default LocationPicker;
+
+
+

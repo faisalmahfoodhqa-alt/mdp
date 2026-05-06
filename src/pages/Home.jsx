@@ -63,7 +63,6 @@ const Home = () => {
 
   // تصفية المنتجات المضافة من البائعين
   const sellerProducts = (allProducts || []).filter(p => p.isVisible !== false);
-  const todayOffers = sellerProducts.filter(p => p.isOffer && isAdActive(p.offerExpiry));
   const paidFeatured = sellerProducts.filter(p => p.isFeatured && isAdActive(p.featuredExpiry));
   const allFeatured = [...paidFeatured, ...staticFeatured];
 
@@ -78,43 +77,9 @@ const Home = () => {
     <div>
       <HeroSlider />
       
-      {/* قسم عروض اليوم */}
-      {todayOffers.length > 0 && (
-        <div style={{ background: colors.primary, padding: '20px 0' }}>
-          <div style={{ 
-            maxWidth: '1200px', margin: '0 auto', padding: '0 20px',
-            display: 'flex', flexDirection: isMobile ? 'column' : 'row', 
-            justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center',
-            gap: '15px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '24px' }}>🔥</span>
-              <h2 style={{ color: colors.white, fontSize: '22px', fontWeight: '800', margin: 0 }}>ضع منتجاتك في مقدمة المتجر</h2>
-            </div>
-            
-            <Link to="/register?type=seller" style={{
-              background: `linear-gradient(135deg, ${colors.gold}, ${colors.goldLight})`,
-              color: colors.primary,
-              padding: '8px 20px',
-              borderRadius: '50px',
-              fontSize: '13px',
-              fontWeight: '800',
-              textDecoration: 'none',
-              boxShadow: `0 4px 15px ${colors.gold}40`,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-               ضع منتجاتك هنا في مقدمة المتجر 🚀
-            </Link>
-          </div>
-          <FeaturedProducts products={todayOffers} />
-        </div>
-      )}
-
       {/* المنتجات المميزة */}
       {allFeatured.length > 0 && (
-        <FeaturedProducts products={allFeatured} />
+        <FeaturedProducts products={allFeatured} title="⭐ منتجات مميزة" />
       )}
 
       {/* جديد المتاجر المتابعة */}

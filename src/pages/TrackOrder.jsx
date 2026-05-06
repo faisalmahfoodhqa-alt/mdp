@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircleFill, Truck, BoxSeam, Receipt, ArrowRight } from 'react-bootstrap-icons';
 import { useAuth } from '../context/AuthContext';
+import { UIButton } from '../shared/components/ui';
 
 const TrackOrder = () => {
     const { orderId } = useParams();
@@ -43,13 +44,13 @@ const TrackOrder = () => {
 
     const steps = [
         { id: 'pending', label: 'تم الطلب', icon: <Receipt size={24} /> },
-        { id: 'confirmed', label: 'تم التأكيد', icon: <BoxSeam size={24} /> },
+        { id: 'processing', label: 'جاري التجهيز', icon: <BoxSeam size={24} /> },
         { id: 'shipping', label: 'في الطريق', icon: <Truck size={24} /> },
         { id: 'delivered', label: 'تم التسليم', icon: <CheckCircleFill size={24} /> }
     ];
 
     let currentStepIdx = 0;
-    if (order.status === 'confirmed') currentStepIdx = 1;
+    if (order.status === 'processing') currentStepIdx = 1;
     if (order.status === 'shipping') currentStepIdx = 2;
     if (order.status === 'delivered') currentStepIdx = 3;
 
@@ -58,12 +59,12 @@ const TrackOrder = () => {
             
             {/* Header with Back Button */}
             <div style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '15px', maxWidth: '600px', margin: '0 auto' }}>
-                <button 
+                <UIButton 
                   onClick={() => navigate(-1)} 
                   style={{ background: 'transparent', border: `1px solid ${colors.gold}40`, padding: '8px', borderRadius: '12px', cursor: 'pointer', display: 'flex' }}
                 >
                     <ArrowRight size={22} color={colors.gold} />
-                </button>
+                </UIButton>
             </div>
 
             <div style={{ maxWidth: '600px', margin: '0 auto', padding: '0 15px' }}>
@@ -112,18 +113,18 @@ const TrackOrder = () => {
                     </div>
 
                     <div style={{ marginTop: '40px', display: 'flex', gap: '15px' }}>
-                        <button 
+                        <UIButton 
                             onClick={() => navigate('/')}
                             style={{ flex: 1, padding: '16px', background: 'transparent', color: 'white', border: `1.5px solid ${colors.gold}40`, borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}
                         >
                             الرئيسية
-                        </button>
-                        <button 
+                        </UIButton>
+                        <UIButton 
                              onClick={() => navigate('/orders')} 
                              style={{ flex: 1, padding: '16px', background: colors.gold, color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', boxShadow: `0 8px 15px rgba(200, 140, 35, 0.2)` }}
                         >
                             قائمة طلباتي
-                        </button>
+                        </UIButton>
                     </div>
                 </div>
             </div>

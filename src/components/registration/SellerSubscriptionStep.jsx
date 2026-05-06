@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  CheckCircle, Gift, Award, Trophy, 
-  Star, Gem, Lightning 
+import {
+  CheckCircle, Gift, Award, Trophy,
+  Star, Gem,
 } from 'react-bootstrap-icons';
-
+import { UIButton } from '../../shared/components/ui';
 const SellerSubscriptionStep = ({ 
   onSubmit, 
   onBack, 
@@ -13,9 +12,8 @@ const SellerSubscriptionStep = ({
   selectedPlan: externalPlan,
   setSelectedPlan: externalSetPlan,
   selectedDuration: externalDuration,
-  setSelectedDuration: externalSetDuration
+  setSelectedDuration: externalSetDuration,
 }) => {
-  // بيانات الباقات داخل المكون لضمان الاستقرار
   const PLANS_DATA = [
     {
       key: 'trial',
@@ -57,21 +55,19 @@ const SellerSubscriptionStep = ({
     }
   ];
 
-  // دالة لجلب الأيقونة المناسبة
   const getPlanIcon = (type, color) => {
     const props = { size: 32, color: color };
     switch(type) {
       case 'gift': return <Gift {...props} />;
       case 'award': return <Award {...props} />;
       case 'trophy': return <Trophy {...props} />;
-      case 'crown': return <Gem {...props} />; // تم استبدال التاج بالجوهرة لضمان العمل
+      case 'crown': return <Gem {...props} />;
       default: return <Star {...props} />;
     }
   };
 
   const [internalPlan, setInternalPlan] = useState('trial');
   const [internalDuration, setInternalDuration] = useState('monthly');
-  const [isMobile] = useState(window.innerWidth < 768);
 
   const selectedPlan = externalPlan !== undefined ? externalPlan : internalPlan;
   const setSelectedPlan = externalSetPlan || setInternalPlan;
@@ -93,131 +89,101 @@ const SellerSubscriptionStep = ({
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', direction: 'rtl' }}>
-      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-        <h2 style={{ 
-          color: colors.primary, 
-          fontSize: isMobile ? '24px' : '34px', 
-          fontWeight: '900', 
-          marginBottom: '12px'
-        }}>
-          اختر باقة الاشتراك
-        </h2>
-        <p style={{ color: '#666', fontSize: '15px' }}>استثمر في نمو تجارتك مع باقات توريد نت الاحترافية</p>
+    <div
+      style={{
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        paddingLeft: 'clamp(10px, 3.5vw, 20px)',
+        paddingRight: 'clamp(10px, 3.5vw, 20px)',
+        direction: 'rtl',
+      }}
+    >
+      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <h2 style={{ color: colors.primary, fontSize: '26px', fontWeight: '900', marginBottom: '10px' }}>اختر باقة الاشتراك</h2>
+        <p style={{ color: '#666', fontSize: '15px' }}>ابدأ رحلة نجاحك مع توريد نت</p>
       </div>
 
       <div style={{ 
-        display: 'flex', 
-        gap: '0', 
-        marginBottom: '40px', 
-        background: '#f1f1f1', 
-        padding: '5px', 
-        borderRadius: '16px', 
-        maxWidth: '320px', 
-        margin: '0 auto 40px'
+        display: 'flex', gap: '5px', marginBottom: '30px', 
+        background: '#f1f1f1', padding: '5px', borderRadius: '16px', 
+        maxWidth: '320px', margin: '0 auto 30px'
       }}>
-        <button type="button" onClick={() => setSelectedDuration('monthly')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: selectedDuration === 'monthly' ? colors.white : 'transparent', color: colors.primary, fontWeight: '800', cursor: 'pointer', transition: '0.3s' }}>شهر</button>
-        <button type="button" onClick={() => setSelectedDuration('6months')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: selectedDuration === '6months' ? colors.white : 'transparent', color: colors.primary, fontWeight: '800', cursor: 'pointer', transition: '0.3s' }}>6 أشهر</button>
-        <button type="button" onClick={() => setSelectedDuration('yearly')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: selectedDuration === 'yearly' ? colors.white : 'transparent', color: colors.primary, fontWeight: '800', cursor: 'pointer', transition: '0.3s' }}>سنة</button>
+        {['monthly', '6months', 'yearly'].map(d => (
+          <UIButton key={d} type="button" onClick={() => setSelectedDuration(d)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: selectedDuration === d ? colors.white : 'transparent', color: colors.primary, fontWeight: '800', cursor: 'pointer', transition: '0.3s', fontSize: '13px' }}>
+            {d === 'monthly' ? 'شهري' : d === '6months' ? '6 أشهر' : 'سنوي'}
+          </UIButton>
+        ))}
       </div>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', 
-        gap: '20px', 
-        marginBottom: '40px' 
-      }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '35px' }}>
         {PLANS_DATA.map(plan => (
           <div key={plan.key} onClick={() => setSelectedPlan(plan.key)} style={{
-            padding: '30px 20px', 
-            borderRadius: '28px', 
+            padding: '15px 20px', // العودة للشكل الأكثر اختصاراً
+            borderRadius: '20px', 
             border: `2px solid ${selectedPlan === plan.key ? colors.gold : '#f1f5f9'}`,
             background: colors.white, 
             cursor: 'pointer', 
             position: 'relative', 
             transition: '0.3s',
-            boxShadow: selectedPlan === plan.key ? `0 15px 30px ${colors.gold}20` : '0 4px 15px rgba(0,0,0,0.02)',
+            boxShadow: selectedPlan === plan.key ? `0 10px 25px ${colors.gold}15` : '0 4px 12px rgba(0,0,0,0.03)',
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            textAlign: 'center'
+            gap: '15px',
+            textAlign: 'right'
           }}>
             {plan.popular && (
               <div style={{ 
-                position: 'absolute', top: '-15px', left: '50%', transform: 'translateX(-50%)', 
-                background: colors.gold, color: colors.primary, padding: '5px 18px', 
-                borderRadius: '50px', fontSize: '12px', fontWeight: '900', zIndex: 10
+                position: 'absolute', top: '10px', left: '20px', 
+                background: colors.gold, color: colors.primary, padding: '2px 10px', 
+                borderRadius: '50px', fontSize: '10px', fontWeight: '900', zIndex: 10
               }}>
                 الأكثر طلباً
               </div>
             )}
 
             <div style={{ 
-              width: '70px', height: '70px', borderRadius: '22px', 
+              width: '50px', height: '50px', borderRadius: '15px', 
               background: `${plan.color}15`, display: 'flex', 
-              alignItems: 'center', justifyContent: 'center', marginBottom: '20px'
+              alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}>
               {getPlanIcon(plan.iconType, plan.color)}
             </div>
 
-            <div style={{ fontSize: '20px', fontWeight: '800', color: colors.primary, marginBottom: '8px' }}>{plan.name}</div>
-            <div style={{ fontSize: '22px', fontWeight: '900', color: colors.gold, marginBottom: '20px' }}>{calculatePrice(plan.basePrice)}</div>
-
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px', textAlign: 'right', marginBottom: '25px' }}>
-              <div style={{ fontSize: '13.5px', color: '#555', display: 'flex', alignItems: 'center', gap: '8px', direction: 'rtl' }}>
-                <CheckCircle color={colors.gold} size={15} /> <span>{plan.products}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '17px', fontWeight: '800', color: colors.primary }}>{plan.name}</div>
+              <div style={{ fontSize: '15px', fontWeight: '900', color: colors.gold }}>{calculatePrice(plan.basePrice)}</div>
+              
+              <div style={{ display: 'flex', gap: '15px', marginTop: '5px' }}>
+                <span style={{ fontSize: '12px', color: '#777', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <CheckCircle size={12} color={colors.gold} /> {plan.products}
+                </span>
+                <span style={{ fontSize: '12px', color: '#777', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <CheckCircle size={12} color={colors.gold} /> {plan.images}
+                </span>
               </div>
-              <div style={{ fontSize: '13.5px', color: '#555', display: 'flex', alignItems: 'center', gap: '8px', direction: 'rtl' }}>
-                <CheckCircle color={colors.gold} size={15} /> <span>{plan.images} لكل منتج</span>
-              </div>
-              {plan.validity && (
-                <div style={{ fontSize: '13.5px', color: '#555', display: 'flex', alignItems: 'center', gap: '8px', direction: 'rtl' }}>
-                  <Lightning color={colors.gold} size={15} /> <span>{plan.validity}</span>
-                </div>
-              )}
             </div>
 
             <div style={{
-              marginTop: 'auto',
-              width: '26px', height: '26px', borderRadius: '50%', 
+              width: '24px', height: '24px', borderRadius: '50%', 
               border: `2px solid ${selectedPlan === plan.key ? colors.gold : '#e2e8f0'}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: selectedPlan === plan.key ? colors.gold : 'transparent'
+              background: selectedPlan === plan.key ? colors.gold : 'transparent',
+              flexShrink: 0
             }}>
-              {selectedPlan === plan.key && <CheckCircle color="white" size={16} />}
+              {selectedPlan === plan.key && <CheckCircle color="white" size={14} />}
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '15px', marginBottom: '30px' }}>
-        <button 
-          type="button"
-          onClick={onSubmit} 
-          disabled={externalLoading} 
-          style={{ 
-            flex: 2, padding: '18px', background: colors.gold, border: 'none', 
-            borderRadius: '15px', color: colors.primary, fontWeight: '900', 
-            fontSize: '18px', cursor: externalLoading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {externalLoading ? 'جاري التحميل...' : 'إكمال التسجيل والبدء'}
-        </button>
-        <button 
-          type="button"
-          onClick={onBack} 
-          style={{ 
-            flex: 1, padding: '18px', background: 'transparent', 
-            border: `2px solid ${colors.gold}`, borderRadius: '15px', 
-            color: colors.gold, fontWeight: '900', fontSize: '16px', cursor: 'pointer'
-          }}
-        >
+      <div style={{ display: 'flex', gap: '15px', marginBottom: '30px' }}>
+        <UIButton type="button" onClick={onSubmit} disabled={externalLoading} style={{ flex: 2, padding: '18px', background: colors.gold, border: 'none', borderRadius: '15px', color: colors.primary, fontWeight: '900', fontSize: '18px', cursor: externalLoading ? 'not-allowed' : 'pointer' }}>
+          {externalLoading ? 'جاري التحميل...' : 'تأكيد الاشتراك والمتابعة'}
+        </UIButton>
+        <UIButton type="button" onClick={onBack} style={{ flex: 1, padding: '18px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '15px', color: colors.gold, fontWeight: '900', fontSize: '16px', cursor: 'pointer' }}>
           رجوع
-        </button>
-      </div>
-
-      <div style={{ textAlign: 'center', paddingBottom: '20px' }}>
-        <p style={{ color: '#666', fontSize: '14px' }}>لديك حساب بالفعل؟ <Link to="/login" style={{ color: colors.gold, fontWeight: 'bold', textDecoration: 'none' }}>تسجيل الدخول</Link></p>
+        </UIButton>
       </div>
     </div>
   );

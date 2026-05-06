@@ -7,6 +7,7 @@ import {
   Map, PinMap, GeoAlt, Globe, Envelope,
   House, Grid
 } from 'react-bootstrap-icons';
+import { UIButton } from '../shared/components/ui';
 
 const SellerWelcome = () => {
   const { user, updateUser } = useAuth();
@@ -170,12 +171,12 @@ const SellerWelcome = () => {
           <h1 style={{ color: colors.primary, fontSize: isMobile ? '24px' : '28px', fontWeight: 'bold', marginBottom: '10px' }}>متجرك جاهز! 🎉</h1>
           <p style={{ color: colors.gray, fontSize: '15px', marginBottom: '30px' }}>تم إعداد متجرك بنجاح. يمكنك الآن البدء بإضافة المنتجات.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <button onClick={handleGoToDashboard} style={{ width: '100%', padding: '14px', background: `linear-gradient(135deg, ${colors.gold}, ${colors.goldLight})`, border: 'none', borderRadius: '12px', color: colors.primary, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <UIButton onClick={handleGoToDashboard} style={{ width: '100%', padding: '14px', background: `linear-gradient(135deg, ${colors.gold}, ${colors.goldLight})`, border: 'none', borderRadius: '12px', color: colors.primary, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               <Grid size={18} /> لوحة التحكم
-            </button>
-            <button onClick={handleBackToMarket} style={{ width: '100%', padding: '14px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '12px', color: colors.gold, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            </UIButton>
+            <UIButton onClick={handleBackToMarket} style={{ width: '100%', padding: '14px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '12px', color: colors.gold, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               <House size={18} /> الرجوع للرئيسية
-            </button>
+            </UIButton>
           </div>
         </div>
       </div>
@@ -223,8 +224,8 @@ const SellerWelcome = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '15px' }}>
-                <button type="submit" style={{ flex: 1, padding: '14px', background: `linear-gradient(135deg, ${colors.gold}, ${colors.goldLight})`, border: 'none', borderRadius: '12px', color: colors.primary, fontWeight: 'bold', cursor: 'pointer' }}>متابعة</button>
-                <button type="button" onClick={handleSkip} style={{ flex: 1, padding: '14px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '12px', color: colors.gold, fontWeight: 'bold', cursor: 'pointer' }}>تخطي</button>
+                <UIButton type="submit" style={{ flex: 1, padding: '14px', background: `linear-gradient(135deg, ${colors.gold}, ${colors.goldLight})`, border: 'none', borderRadius: '12px', color: colors.primary, fontWeight: 'bold', cursor: 'pointer' }}>متابعة</UIButton>
+                <UIButton type="button" onClick={handleSkip} style={{ flex: 1, padding: '14px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '12px', color: colors.gold, fontWeight: 'bold', cursor: 'pointer' }}>تخطي</UIButton>
               </div>
             </form>
           </div>
@@ -258,8 +259,8 @@ const SellerWelcome = () => {
           <p style={{ color: colors.gray, fontSize: isMobile ? '14px' : '16px', marginBottom: '30px', lineHeight: '1.6' }}>خطوات بسيطة وتبدأ رحلة نجاحك معنا. سنقوم بإعداد متجرك الآن ليسهل على عملائك العثور عليك.</p>
           
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '15px', justifyContent: 'center' }}>
-            <button onClick={handleStart} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 40px', background: `linear-gradient(135deg, ${colors.gold}, ${colors.goldLight})`, border: 'none', borderRadius: '50px', color: colors.primary, fontWeight: 'bold', cursor: 'pointer', justifyContent: 'center' }}>لنبدأ الآن <ArrowLeft size={18} /></button>
-            <button onClick={handleLater} style={{ padding: '14px 40px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '50px', color: colors.gold, fontWeight: 'bold', cursor: 'pointer', justifyContent: 'center' }}>لاحقاً</button>
+            <UIButton onClick={handleStart} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 40px', background: `linear-gradient(135deg, ${colors.gold}, ${colors.goldLight})`, border: 'none', borderRadius: '50px', color: colors.primary, fontWeight: 'bold', cursor: 'pointer', justifyContent: 'center' }}>لنبدأ الآن <ArrowLeft size={18} /></UIButton>
+            <UIButton onClick={handleLater} style={{ padding: '14px 40px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '50px', color: colors.gold, fontWeight: 'bold', cursor: 'pointer', justifyContent: 'center' }}>لاحقاً</UIButton>
           </div>
         </div>
       </div>

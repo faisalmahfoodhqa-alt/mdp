@@ -97,21 +97,99 @@ export const getDetailedItems = (activity, subGroup, category) => {
   return Array.isArray(items) ? items : [];
 };
 
-export const compressImage = (file, { maxWidth = 800, maxHeight = 800, quality = 0.7 } = {}) => {
-  return new Promise((resolve) => {
+function dataUrlApproxBytes(dataUrl) {
+  const i = dataUrl.indexOf(',');
+  if (i < 0) return Infinity;
+  return Math.round((dataUrl.length - i - 1) * 0.75);
+}
+
+function fitInside(w, h, maxW, maxH) {
+  const r = Math.min(maxW / w, maxH / h, 1);
+  return {
+    width: Math.max(1, Math.round(w * r)),
+    height: Math.max(1, Math.round(h * r)),
+  };
+}
+
+/**
+ * يقلّل أبعاد الصورة وجودة JPEG حتى يقترب حجم الناتج من maxBytes (تقريباً من طول base64).
+ * يدعم المعامل القديم quality أو مصفوفة qualities.
+ */
+export const compressImage = (file, opts = {}) => {
+  const {
+    maxWidth = 1024,
+    maxHeight = 1024,
+    maxBytes = 400 * 1024,
+    quality,
+    qualities: qualitiesOverride,
+    minDimension = 260,
+    maxShrinkPasses = 7,
+  } = opts;
+
+  const defaultQualities = [0.82, 0.72, 0.62, 0.54, 0.47, 0.41];
+  let qualities = qualitiesOverride;
+  if (!qualities?.length) {
+    qualities =
+      typeof quality === 'number'
+        ? [
+            quality,
+            Math.max(0.4, quality - 0.1),
+            Math.max(0.38, quality - 0.18),
+            Math.max(0.35, quality - 0.26),
+          ]
+        : defaultQualities;
+  }
+
+  return new Promise((resolve, reject) => {
+    if (!file?.type?.startsWith?.('image/')) {
+      reject(new Error('الملف المختار ليس صورة'));
+      return;
+    }
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error('تعذّر قراءة الملف'));
     reader.onload = (e) => {
       const img = new Image();
+      img.onerror = () => reject(new Error('تعذّر فتح الصورة'));
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        let { width, height } = img;
-        if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
-        if (height > maxHeight) { width = Math.round((width * maxHeight) / height); height = maxHeight; }
-        canvas.width = width;
-        canvas.height = height;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+
+        let { width, height } = fitInside(img.width, img.height, maxWidth, maxHeight);
+
+        const encodeAtSize = (w, h) => {
+          canvas.width = w;
+          canvas.height = h;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          let best = canvas.toDataURL('image/jpeg', qualities[qualities.length - 1]);
+          let bestB = dataUrlApproxBytes(best);
+          for (const q of qualities) {
+            const du = canvas.toDataURL('image/jpeg', q);
+            const b = dataUrlApproxBytes(du);
+            if (b <= maxBytes) return du;
+            if (b < bestB) {
+              best = du;
+              bestB = b;
+            }
+          }
+          return best;
+        };
+
+        let dataUrl = encodeAtSize(width, height);
+        let passes = 0;
+        while (
+          dataUrlApproxBytes(dataUrl) > maxBytes &&
+          passes < maxShrinkPasses &&
+          width > minDimension &&
+          height > minDimension
+        ) {
+          width = Math.max(minDimension, Math.round(width * 0.84));
+          height = Math.max(minDimension, Math.round(height * 0.84));
+          passes++;
+          dataUrl = encodeAtSize(width, height);
+        }
+        resolve(dataUrl);
       };
       img.src = e.target.result;
     };

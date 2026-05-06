@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, Cart, ChevronLeft, ChevronRight, Clock, Fire, Share } from 'react-bootstrap-icons';
+import { UIButton } from '../../shared/components/ui';
 
 const SaleProducts = ({ products }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -174,7 +175,7 @@ const SaleProducts = ({ products }) => {
           {/* أزرار التنقل */}
           {totalPages > 1 && (
             <>
-              <button
+              <UIButton
                 onClick={prevSlide}
                 style={{
                   position: 'absolute',
@@ -204,8 +205,8 @@ const SaleProducts = ({ products }) => {
                 }}
               >
                 <ChevronRight size={20} color={colors.primary} />
-              </button>
-              <button
+              </UIButton>
+              <UIButton
                 onClick={nextSlide}
                 style={{
                   position: 'absolute',
@@ -235,7 +236,7 @@ const SaleProducts = ({ products }) => {
                 }}
               >
                 <ChevronLeft size={20} color={colors.primary} />
-              </button>
+              </UIButton>
             </>
           )}
 
@@ -248,10 +249,12 @@ const SaleProducts = ({ products }) => {
           }}>
             {displayedProducts.map((product) => {
               const time = timeLeft[product.id];
+              const resolvedId = product?.id ?? product?.productId ?? product?._id;
+              if (!resolvedId) return null;
               return (
                 <Link
-                  key={product.id}
-                  to={`/product/${product.id}`}
+                  key={resolvedId}
+                  to={`/product/${resolvedId}`}
                   style={{ textDecoration: 'none' }}
                   onMouseEnter={() => setHoveredProduct(product.id)}
                   onMouseLeave={() => setHoveredProduct(null)}
@@ -291,11 +294,11 @@ const SaleProducts = ({ products }) => {
 
                       {/* Share Button Overlay - Only on Hover */}
                       {hoveredProduct === product.id && (
-                        <button
+                        <UIButton
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            const url = `${window.location.origin}/product/${product.id}`;
+                            const url = `${window.location.origin}/product/${resolvedId}`;
                             if (navigator.share) {
                               navigator.share({ title: product.name, url });
                             } else {
@@ -324,7 +327,7 @@ const SaleProducts = ({ products }) => {
                         >
                           <Share size={14} />
                           <style>{`@keyframes fadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }`}</style>
-                        </button>
+                        </UIButton>
                       )}
                       
                       {/* شارة الخصم الكبيرة */}
@@ -425,7 +428,7 @@ const SaleProducts = ({ products }) => {
                       </div>
 
                       {/* زر التفاصيل */}
-                      <button
+                      <UIButton
                         style={{
                           width: '100%',
                           padding: '6px',
@@ -453,7 +456,7 @@ const SaleProducts = ({ products }) => {
                       >
                         <Cart size={11} />
                         اشتر الآن
-                      </button>
+                      </UIButton>
                     </div>
                   </div>
                 </Link>
@@ -471,7 +474,7 @@ const SaleProducts = ({ products }) => {
             marginTop: '25px'
           }}>
             {Array.from({ length: totalPages }).map((_, index) => (
-              <button
+              <UIButton
                 key={index}
                 onClick={() => {
                   setAutoplay(false);

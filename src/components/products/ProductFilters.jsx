@@ -1,6 +1,7 @@
 // src/components/products/ProductFilters.jsx
 import React, { useState, useEffect } from 'react';
 import { Star, ChevronDown, ChevronUp, Filter } from 'react-bootstrap-icons';
+import { UIButton } from '../../shared/components/ui';
 
 const ProductFilters = ({ 
   products, 
@@ -184,24 +185,25 @@ const ProductFilters = ({
              <h3 style={{ margin: 0, color: colors.primary, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                <Filter size={20} color={colors.gold} /> الفلترة
              </h3>
-             <button onClick={() => setShowFilters && setShowFilters(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px', color: colors.gray, padding: '5px' }}>✕</button>
+             <UIButton onClick={() => setShowFilters && setShowFilters(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px', color: colors.gray, padding: '5px' }}>✕</UIButton>
            </div>
-           <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+           <div style={{ flex: 1, overflowY: 'auto', padding: '20px', paddingBottom: '100px' }}>
               <FilterContent />
-           </div>
-           <div style={{ padding: '20px', borderTop: `1px solid ${colors.lightBorder}`, display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={() => setShowFilters && setShowFilters(false)} 
-                style={{ flex: 1, background: colors.primary, color: colors.white, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-              >
-                عرض النتائج
-              </button>
-              <button 
-                onClick={resetFilters} 
-                style={{ flex: 1, background: colors.gold, color: colors.primary, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-              >
-                مسح الفلتر
-              </button>
+              
+              <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: `1px solid ${colors.lightBorder}`, display: 'flex', gap: '10px' }}>
+                <UIButton 
+                  onClick={() => setShowFilters && setShowFilters(false)} 
+                  style={{ flex: 1, background: colors.primary, color: colors.white, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                >
+                  عرض النتائج
+                </UIButton>
+                <UIButton 
+                  onClick={resetFilters} 
+                  style={{ flex: 1, background: colors.gold, color: colors.primary, padding: '12px', borderRadius: '8px', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                >
+                  مسح الفلتر
+                </UIButton>
+              </div>
            </div>
         </div>
       </>
@@ -216,7 +218,7 @@ const ProductFilters = ({
       height: 'auto',
       overflow: 'hidden'
     }}>
-      <button
+      <UIButton
         onClick={resetFilters}
         style={{
           width: '100%',
@@ -232,7 +234,7 @@ const ProductFilters = ({
         }}
       >
         إعادة تعيين الفلاتر
-      </button>
+      </UIButton>
 
       <FilterContent />
     </div>

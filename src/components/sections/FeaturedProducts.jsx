@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Share } from 'react-bootstrap-icons';
+import { UIButton } from '../../shared/components/ui';
 
-const FeaturedProducts = ({ products }) => {
-  const [isMobile, setIsMobile] = useState(false);
+const FeaturedProducts = ({ products, title = 'منتجات مميزة' }) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [hoveredProduct, setHoveredProduct] = useState(null);
   const [isPaused, setIsPaused] = useState(false);
   const scrollRef = useRef(null);
@@ -66,7 +67,8 @@ const FeaturedProducts = ({ products }) => {
       background: `linear-gradient(135deg, ${colors.primary} 0%, #0f2a4a 100%)`,
       direction: 'rtl',
       position: 'relative',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      minHeight: isMobile ? '170px' : '220px'
     }}>
       {/* زخارف خلفية */}
       <div style={{
@@ -97,7 +99,7 @@ const FeaturedProducts = ({ products }) => {
             textShadow: '0 2px 10px rgba(0,0,0,0.5)',
             letterSpacing: '1px'
           }}>
-            منتجات مميزة
+            {title}
           </h2>
           <Link
             to="/featured-products"
@@ -148,9 +150,12 @@ const FeaturedProducts = ({ products }) => {
             setTimeout(() => setIsPaused(false), 2000);
           }}
         >
-          {extendedProducts.map((product, index) => (
+          {extendedProducts.map((product, index) => {
+            const resolvedId = product?.id ?? product?.productId ?? product?._id;
+            if (!resolvedId) return null;
+            return (
             <div
-              key={`${product.id}-${index}`}
+              key={`${resolvedId}-${index}`}
               style={{
                 minWidth: isMobile ? '110px' : '140px',
                 width: isMobile ? '110px' : '140px',
@@ -161,9 +166,9 @@ const FeaturedProducts = ({ products }) => {
               }}
             >
               <Link
-                to={`/product/${product.id}`}
+                to={`/product/${resolvedId}`}
                 style={{ textDecoration: 'none' }}
-                onMouseEnter={() => setHoveredProduct(`${product.id}-${index}`)}
+                onMouseEnter={() => setHoveredProduct(`${resolvedId}-${index}`)}
                 onMouseLeave={() => setHoveredProduct(null)}
               >
                 <div style={{
@@ -172,11 +177,11 @@ const FeaturedProducts = ({ products }) => {
                   overflow: 'hidden',
                   transition: 'all 0.4s ease',
                   cursor: 'pointer',
-                  transform: hoveredProduct === `${product.id}-${index}` ? 'translateY(-3px)' : 'translateY(0)',
-                  boxShadow: hoveredProduct === `${product.id}-${index}` 
+                  transform: hoveredProduct === `${resolvedId}-${index}` ? 'translateY(-3px)' : 'translateY(0)',
+                  boxShadow: hoveredProduct === `${resolvedId}-${index}` 
                     ? `0 8px 15px ${colors.gold}20` 
                     : '0 3px 8px rgba(0,0,0,0.2)',
-                  border: hoveredProduct === `${product.id}-${index}` ? `1px solid ${colors.gold}40` : '1px solid transparent'
+                  border: hoveredProduct === `${resolvedId}-${index}` ? `1px solid ${colors.gold}40` : '1px solid transparent'
                 }}>
                   {/* صورة المنتج */}
                   <div style={{
@@ -194,16 +199,16 @@ const FeaturedProducts = ({ products }) => {
                         height: '100%',
                         objectFit: 'cover',
                         transition: 'transform 0.5s ease',
-                        transform: hoveredProduct === `${product.id}-${index}` ? 'scale(1.1)' : 'scale(1)'
+                        transform: hoveredProduct === `${resolvedId}-${index}` ? 'scale(1.1)' : 'scale(1)'
                       }}
                     />
                     {/* Share Button Overlay - Only on Hover */}
-                    {hoveredProduct === `${product.id}-${index}` && (
-                      <button
+                    {hoveredProduct === `${resolvedId}-${index}` && (
+                      <UIButton
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          const url = `${window.location.origin}/product/${product.id}`;
+                          const url = `${window.location.origin}/product/${resolvedId}`;
                           if (navigator.share) {
                             navigator.share({ title: product.name, url });
                           } else {
@@ -231,7 +236,7 @@ const FeaturedProducts = ({ products }) => {
                         }}
                       >
                         <Share size={12} />
-                      </button>
+                      </UIButton>
                     )}
                   </div>
 
@@ -259,14 +264,14 @@ const FeaturedProducts = ({ products }) => {
                       </span>
                     </div>
 
-                    <button
+                    <UIButton
                       style={{
                         width: '100%',
                         padding: '4px',
-                        background: hoveredProduct === `${product.id}-${index}` ? colors.gold : `${colors.gold}10`,
+                        background: hoveredProduct === `${resolvedId}-${index}` ? colors.gold : `${colors.gold}10`,
                         border: `1px solid ${colors.gold}30`,
                         borderRadius: '4px',
-                        color: hoveredProduct === `${product.id}-${index}` ? colors.primary : colors.gold,
+                        color: hoveredProduct === `${resolvedId}-${index}` ? colors.primary : colors.gold,
                         fontWeight: 'bold',
                         fontSize: '9px',
                         cursor: 'pointer',
@@ -274,12 +279,12 @@ const FeaturedProducts = ({ products }) => {
                       }}
                     >
                       تسوق الآن
-                    </button>
+                    </UIButton>
                   </div>
                 </div>
               </Link>
             </div>
-          ))}
+          )})}
         </div>
 
         <style>

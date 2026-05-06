@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PencilSquare, PlusCircle, Trash, XCircle, BoxSeam, CloudUpload, Eye, EyeSlash, Grid3x2Gap } from 'react-bootstrap-icons';
 import { C, compressImage, hasSubGroups, getSubGroups, getSubCategories, getDetailedItems, MAIN_CATS } from './constants';
+import { UIButton } from '../../../shared/components/ui';
 
 export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMobile }) => {
   const fileInputRef = useRef();
@@ -47,6 +48,26 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
   
   const [sizeInput, setSizeInput] = useState('');
   const [colorInput, setColorInput] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Clear error when user fills in the field
+  useEffect(() => {
+    const newErrors = { ...fieldErrors };
+    if (form.name && newErrors.name) delete newErrors.name;
+    if (form.description && newErrors.description) delete newErrors.description;
+    if (form.price && newErrors.price) delete newErrors.price;
+    if (form.category && newErrors.category) delete newErrors.category;
+    if (form.stock && newErrors.stock) delete newErrors.stock;
+    if (form.images.length > 0 && newErrors.images) delete newErrors.images;
+    setFieldErrors(newErrors);
+  }, [form.name, form.description, form.price, form.category, form.stock, form.images.length]);
+
+  const errorBorder = (field) => fieldErrors[field] ? '#ef4444' : null;
+  const ErrorMsg = ({ field }) => fieldErrors[field] ? (
+    <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: '600', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <span style={{ fontSize: '14px' }}>⚠</span> {fieldErrors[field]}
+    </div>
+  ) : null;
 
   const addVariant = (type, val) => {
     const value = val.trim();
@@ -64,14 +85,25 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
 
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
-    if (form.images.length + files.length > (status?.maxImagesPerProduct || 2)) {
-      alert(`عذراً، باقتك الحالية تسمح بـ ${status?.maxImagesPerProduct} صور فقط لكل منتج.`);
+    const maxImg = status?.maxImagesPerProduct || 2;
+    if (form.images.length + files.length > maxImg) {
+      alert(`عذراً، باقتك الحالية تسمح بـ ${maxImg} صور فقط لكل منتج.`);
+      e.target.value = '';
       return;
     }
     for (const file of files) {
-      const compressed = await compressImage(file, { maxWidth: 800, maxHeight: 800, quality: 0.7 });
-      setForm(prev => ({ ...prev, images: [...prev.images, { url: compressed }] }));
+      try {
+        const compressed = await compressImage(file, {
+          maxWidth: 1024,
+          maxHeight: 1024,
+          maxBytes: 340 * 1024,
+        });
+        setForm(prev => ({ ...prev, images: [...prev.images, { url: compressed }] }));
+      } catch (err) {
+        alert(err?.message || 'تعذّر ضغط الصورة، جرّب صورة أخرى.');
+      }
     }
+    e.target.value = '';
   };
 
   const removeImage = (index) => {
@@ -95,24 +127,27 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
          {/* Column 1 - Basic Info & Category */}
          <div style={{display:'flex', flexDirection:'column', gap:'25px'}}>
            
-           <section>
+           <section data-field="name">
              <label style={{display:'block', marginBottom:'10px', fontSize:'14px', fontWeight:'700', color:C.text}}>1. اسم المنتج والوصف</label>
              <input value={form.name} onChange={e=>setForm({...form, name:e.target.value})} 
-               style={{width:'100%', padding:'14px', borderRadius:'12px', border:`2px solid ${C.border}`, outline:'none', boxSizing:'border-box', fontSize:'15px', transition:'0.3s'}} 
+               style={{width:'100%', padding:'14px', borderRadius:'12px', border:`2px solid ${errorBorder('name') || C.border}`, outline:'none', boxSizing:'border-box', fontSize:'15px', transition:'0.3s', ...(fieldErrors.name && {background:'#fef2f2'})}} 
                placeholder="اسم المنتج (مثلاً: عباية خليجية مطرزة)"/>
+             <ErrorMsg field="name" />
              <textarea value={form.description} onChange={e=>setForm({...form, description:e.target.value})} 
-               style={{width:'100%', padding:'14px', borderRadius:'12px', border:`2px solid ${C.border}`, outline:'none', height:'100px', boxSizing:'border-box', marginTop:'12px', fontSize:'14px', resize:'none'}} 
+               style={{width:'100%', padding:'14px', borderRadius:'12px', border:`2px solid ${errorBorder('description') || C.border}`, outline:'none', height:'100px', boxSizing:'border-box', marginTop:'12px', fontSize:'14px', resize:'none', ...(fieldErrors.description && {background:'#fef2f2'})}} 
                placeholder="وصف تفصيلي للمنتج (المميزات، الخامة، إلخ)..."/>
+             <ErrorMsg field="description" />
            </section>
 
-           <section>
+           <section data-field="price">
              <label style={{display:'block', marginBottom:'10px', fontSize:'14px', fontWeight:'700', color:C.text}}>2. السعر (الحالي والسعر القديم)</label>
              <div style={{display:'grid', gridTemplateColumns:isMobile ? '1fr' : '1fr 1fr', gap:'15px'}}>
                <div style={{position:'relative'}}>
                  <span style={{position:'absolute', left:'15px', top:'50%', transform:'translateY(-50%)', color:C.gold, fontWeight:'bold', fontFamily:'system-ui, -apple-system, sans-serif'}}>ر.ي</span>
                  <input type="number" value={form.price} onChange={e=>setForm({...form, price:e.target.value})} 
-                   style={{width:'100%', padding:'14px 45px 14px 15px', borderRadius:'12px', border:`2px solid ${C.gold}40`, outline:'none', boxSizing:'border-box', fontSize:'16px', fontWeight:'700'}} 
+                   style={{width:'100%', padding:'14px 45px 14px 15px', borderRadius:'12px', border:`2px solid ${errorBorder('price') || `${C.gold}40`}`, outline:'none', boxSizing:'border-box', fontSize:'16px', fontWeight:'700', ...(fieldErrors.price && {background:'#fef2f2'})}} 
                    placeholder="السعر الحالي"/>
+                 <ErrorMsg field="price" />
                </div>
                <div style={{position:'relative'}}>
                  <span style={{position:'absolute', left:'15px', top:'50%', transform:'translateY(-50%)', color:C.gray, fontFamily:'system-ui, -apple-system, sans-serif'}}>ر.ي</span>
@@ -144,67 +179,70 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
               </div>
             </section>
 
-            <section>
-              <label style={{display:'block', marginBottom:'10px', fontSize:'14px', fontWeight:'700', color:C.text}}>4. اختيار التصنيف</label>
-             <div style={{ background: C.bg, padding: '20px', borderRadius: '15px' }}>
-               <div style={{ fontSize: '13px', color: C.gold, fontWeight: '700', marginBottom: '15px', display:'flex', alignItems:'center', gap:'5px' }}>
-                 <Grid3x2Gap size={14}/> نشاطك: {businessActivity}
-               </div>
-               {isNested && (
-                 <div style={{ marginBottom: '20px' }}>
-                   <label style={{ display: 'block', fontSize: '12px', color: C.gray, marginBottom: '10px' }}>الفئة المستهدفة</label>
-                   <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px' }}>
-                     {getSubGroups(businessActivity).map(group => (
-                       <button key={group} type="button" onClick={() => setForm({ ...form, subGroup: group, category: '', subItem: '' })}
-                         style={{ 
-                           padding: '12px 5px', 
-                           borderRadius: '12px', 
-                           border: `2px solid ${form.subGroup === group ? C.gold : C.border}`, 
-                           background: form.subGroup === group ? `${C.gold}10` : C.white, 
-                           color: form.subGroup === group ? C.gold : C.text, 
-                           fontWeight: '800', 
-                           fontSize: '14px', 
-                           cursor: 'pointer', 
-                           transition: '0.3s',
-                           boxShadow: form.subGroup === group ? `0 4px 12px ${C.gold}20` : 'none',
-                           whiteSpace: 'nowrap',
-                           minWidth: 'fit-content',
-                           flex: 1
-                         }}>
-                         {group}
-                       </button>
-                     ))}
-                   </div>
+            {!form.isOffer && (
+              <section data-field="category">
+                <label style={{display:'block', marginBottom:'10px', fontSize:'14px', fontWeight:'700', color:C.text}}>4. اختيار التصنيف</label>
+               <div style={{ background: C.bg, padding: '20px', borderRadius: '15px' }}>
+                 <div style={{ fontSize: '13px', color: C.gold, fontWeight: '700', marginBottom: '15px', display:'flex', alignItems:'center', gap:'5px' }}>
+                   <Grid3x2Gap size={14}/> نشاطك: {businessActivity}
                  </div>
-               )}
-               {(!isNested || form.subGroup) && (
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                   <div>
-                     <label style={{ display: 'block', fontSize: '12px', color: C.gray, marginBottom: '8px' }}>التصنيف الفرعي</label>
-                     <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value, subItem: '' })}
-                       style={{ width: '100%', padding: '14px', borderRadius: '12px', border: `2px solid ${C.border}`, outline: 'none', background: C.white, fontSize: '14px', fontWeight: 'bold' }}>
-                       <option value="">-- اختر القسم --</option>
-                       {availableCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
-                     </select>
-                   </div>
-
-                   {getDetailedItems(businessActivity, form.subGroup, form.category).length > 0 && (
-                     <div style={{ animation: 'fadeIn 0.3s' }}>
-                       <label style={{ display: 'block', fontSize: '12px', color: C.gray, marginBottom: '8px' }}>القسم التفصيلي (النوع)</label>
-                       <select value={form.subItem} onChange={e => setForm({ ...form, subItem: e.target.value })}
-                         style={{ width: '100%', padding: '14px', borderRadius: '12px', border: `2px solid ${C.gold}50`, outline: 'none', background: C.white, fontSize: '14px', fontWeight: 'bold' }}>
-                         <option value="">-- اختر النوع --</option>
-                         {getDetailedItems(businessActivity, form.subGroup, form.category).map(item => (
-                           <option key={item} value={item}>{item}</option>
-                         ))}
-                       </select>
-                       <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                 {isNested && (
+                   <div style={{ marginBottom: '20px' }}>
+                     <label style={{ display: 'block', fontSize: '12px', color: C.gray, marginBottom: '10px' }}>الفئة المستهدفة</label>
+                     <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px' }}>
+                       {getSubGroups(businessActivity).map(group => (
+                         <UIButton key={group} type="button" onClick={() => setForm({ ...form, subGroup: group, category: '', subItem: '' })}
+                           style={{ 
+                             padding: '12px 5px', 
+                             borderRadius: '12px', 
+                             border: `2px solid ${form.subGroup === group ? C.gold : C.border}`, 
+                             background: form.subGroup === group ? `${C.gold}10` : C.white, 
+                             color: form.subGroup === group ? C.gold : C.text, 
+                             fontWeight: '800', 
+                             fontSize: '14px', 
+                             cursor: 'pointer', 
+                             transition: '0.3s',
+                             boxShadow: form.subGroup === group ? `0 4px 12px ${C.gold}20` : 'none',
+                             whiteSpace: 'nowrap',
+                             minWidth: 'fit-content',
+                             flex: 1
+                           }}>
+                           {group}
+                         </UIButton>
+                       ))}
                      </div>
-                   )}
-                 </div>
-               )}
-             </div>
-           </section>
+                   </div>
+                 )}
+                 {(!isNested || form.subGroup) && (
+                   <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                     <div>
+                       <label style={{ display: 'block', fontSize: '12px', color: C.gray, marginBottom: '8px' }}>التصنيف الفرعي</label>
+                       <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value, subItem: '' })}
+                         style={{ width: '100%', padding: '14px', borderRadius: '12px', border: `2px solid ${errorBorder('category') || C.border}`, outline: 'none', background: fieldErrors.category ? '#fef2f2' : C.white, fontSize: '14px', fontWeight: 'bold' }}>
+                         <option value="">-- اختر القسم --</option>
+                         {availableCategories.map(cat => (<option key={cat} value={cat}>{cat}</option>))}
+                       </select>
+                       <ErrorMsg field="category" />
+                     </div>
+
+                     {getDetailedItems(businessActivity, form.subGroup, form.category).length > 0 && (
+                       <div style={{ animation: 'fadeIn 0.3s' }}>
+                         <label style={{ display: 'block', fontSize: '12px', color: C.gray, marginBottom: '8px' }}>القسم التفصيلي (النوع)</label>
+                         <select value={form.subItem} onChange={e => setForm({ ...form, subItem: e.target.value })}
+                           style={{ width: '100%', padding: '14px', borderRadius: '12px', border: `2px solid ${C.gold}50`, outline: 'none', background: C.white, fontSize: '14px', fontWeight: 'bold' }}>
+                           <option value="">-- اختر النوع --</option>
+                           {getDetailedItems(businessActivity, form.subGroup, form.category).map(item => (
+                             <option key={item} value={item}>{item}</option>
+                           ))}
+                         </select>
+                         <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </div>
+              </section>
+            )}
          </div>
 
          {/* Column 2 - Variants, Stock & Images */}
@@ -221,7 +259,7 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
                     placeholder="أضف مقاس أو خيار (مثلاً: XL أو 100مل)" 
                     style={{flex:1, padding:'10px 14px', borderRadius:'10px', border:`1px solid ${C.border}`, fontSize:'13px', outline:'none'}}
                   />
-                  <button type="button" onClick={() => addVariant('sizes', sizeInput)} style={{padding:'0 15px', background:C.gold, color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontWeight:'bold'}}>+</button>
+                  <UIButton type="button" onClick={() => addVariant('sizes', sizeInput)} style={{padding:'0 15px', background:C.gold, color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontWeight:'bold'}}>+</UIButton>
                 </div>
                 <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
                   {form.sizes?.map(size => (
@@ -246,7 +284,7 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
                     placeholder="أضف لون المنتج..." 
                     style={{flex:1, padding:'10px 14px', borderRadius:'10px', border:`1px solid ${C.border}`, fontSize:'13px', outline:'none'}}
                   />
-                  <button type="button" onClick={() => addVariant('colors', colorInput)} style={{padding:'0 15px', background:C.gold, color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontWeight:'bold'}}>+</button>
+                  <UIButton type="button" onClick={() => addVariant('colors', colorInput)} style={{padding:'0 15px', background:C.gold, color:'white', border:'none', borderRadius:'10px', cursor:'pointer', fontWeight:'bold'}}>+</UIButton>
                 </div>
                 <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
                   {form.colors?.map(color => (
@@ -262,9 +300,9 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
               </div>
             </section>
 
-            <section>
+            <section data-field="stock">
               <label style={{display:'block', marginBottom:'10px', fontSize:'14px', fontWeight:'700', color:C.text}}>7. المخزون والكمية</label>
-              <div style={{display:'flex', alignItems:'center', gap:'12px', background:C.white, border:`2px solid ${C.border}`, padding:'12px 15px', borderRadius:'15px'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'12px', background: fieldErrors.stock ? '#fef2f2' : C.white, border:`2px solid ${errorBorder('stock') || C.border}`, padding:'12px 15px', borderRadius:'15px'}}>
                 <div style={{background:`${C.green}10`, width:'40px', height:'40px', borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', color:C.green}}>
                   <BoxSeam size={20}/>
                 </div>
@@ -272,27 +310,29 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
                   style={{flex:1, border:'none', outline:'none', fontSize:'15px', fontWeight:'600', background:'transparent'}} 
                   placeholder="الكمية المتوفرة (مثلاً: 50 قطعة)"/>
               </div>
+              <ErrorMsg field="stock" />
             </section>
 
-            <section>
+            <section data-field="images">
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
                  <label style={{fontSize:'14px', fontWeight:'700', color:C.text}}>8. صور المنتج</label>
                  <span style={{fontSize:'12px', color:C.gray}}>{form.images.length} / {status?.maxImagesPerProduct || 2} صور</span>
               </div>
-              <div style={{display:'flex', gap:'12px', flexWrap:'wrap', background:C.bg, padding:'15px', borderRadius:'20px', border:`2px dashed ${C.border}`}}>
+              <div style={{display:'flex', gap:'12px', flexWrap:'wrap', background: fieldErrors.images ? '#fef2f2' : C.bg, padding:'15px', borderRadius:'20px', border:`2px dashed ${errorBorder('images') || C.border}`}}>
                  {form.images.map((img, i) => (
                    <div key={i} style={{position:'relative', width:'85px', height:'85px', borderRadius:'15px', overflow:'hidden', boxShadow:'0 4px 10px rgba(0,0,0,0.1)'}}>
                      <img src={img.url} style={{width:'100%', height:'100%', objectFit:'cover'}} alt=""/>
-                     <button onClick={()=>removeImage(i)} style={{position:'absolute', top:'5px', right:'5px', background:C.red, color:C.white, border:'none', width:'24px', height:'24px', borderRadius:'50%', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}><Trash size={12}/></button>
+                     <UIButton onClick={()=>removeImage(i)} style={{position:'absolute', top:'5px', right:'5px', background:C.red, color:C.white, border:'none', width:'24px', height:'24px', borderRadius:'50%', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}><Trash size={12}/></UIButton>
                    </div>
                  ))}
                  {form.images.length < (status?.maxImagesPerProduct || 2) && (
-                   <div onClick={()=>fileInputRef.current.click()} style={{width:'85px', height:'85px', borderRadius:'15px', border:`2px dashed ${C.gold}`, background:C.white, color:C.gold, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'5px', transition:'0.3s'}}>
+                   <div onClick={()=>fileInputRef.current.click()} style={{width:'85px', height:'85px', borderRadius:'15px', border:`2px dashed ${errorBorder('images') || C.gold}`, background:C.white, color: fieldErrors.images ? '#ef4444' : C.gold, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'5px', transition:'0.3s'}}>
                      <CloudUpload size={24}/>
                      <span style={{fontSize:'10px', fontWeight:'bold'}}>رفع صورة</span>
                    </div>
                  )}
               </div>
+              <ErrorMsg field="images" />
               <input type="file" ref={fileInputRef} hidden multiple accept="image/*" onChange={handleFileChange}/>
             </section>
          </div>
@@ -300,15 +340,28 @@ export const ProductForm = ({ user, status, editProduct, onSave, onCancel, isMob
 
        {/* Actions */}
        <div style={{display:'flex', flexDirection:isMobile ? 'column' : 'row', gap:'15px', marginTop:'40px', borderTop:`1px solid ${C.border}`, paddingTop:'30px', justifyContent:'center'}}>
-         <button onClick={onCancel} style={{padding:isMobile ? '12px' : '14px 40px', background:'transparent', border:`2px solid ${C.border}`, borderRadius:'15px', color:C.gray, fontWeight:'700', cursor:'pointer', transition:'0.3s'}}>إلغاء</button>
-         <button onClick={() => {
-           if (!form.name) { alert('يرجى إدخال اسم المنتج'); return; }
-           if (!form.price) { alert('يرجى إدخال سعر المنتج'); return; }
-           if (!form.category) { alert('يرجى اختيار تصنيف المنتج'); return; }
+         <UIButton onClick={onCancel} style={{padding:isMobile ? '12px' : '14px 40px', background:'transparent', border:`2px solid ${C.border}`, borderRadius:'15px', color:C.gray, fontWeight:'700', cursor:'pointer', transition:'0.3s'}}>إلغاء</UIButton>
+         <UIButton onClick={() => {
+           const errors = {};
+           if (!form.name) errors.name = 'يرجى إدخال اسم المنتج';
+           if (!form.description) errors.description = 'يرجى إدخال وصف المنتج';
+           if (!form.price) errors.price = 'يرجى إدخال سعر المنتج';
+           if (!form.isOffer && !form.category) errors.category = 'يرجى اختيار تصنيف المنتج';
+           if (!form.stock) errors.stock = 'يرجى إدخال كمية المخزون';
+           if (form.images.length === 0) errors.images = 'يرجى رفع صورة واحدة على الأقل';
+           if (Object.keys(errors).length > 0) {
+             setFieldErrors(errors);
+             // Scroll to first error
+             const firstErrorKey = Object.keys(errors)[0];
+             const el = document.querySelector(`[data-field="${firstErrorKey}"]`);
+             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             return;
+           }
+           setFieldErrors({});
            onSave(form);
          }} style={{padding:'14px 60px', background:`linear-gradient(135deg, ${C.sidebar}, #1a3a6a)`, border:'none', borderRadius:'15px', color:C.gold, fontWeight:'800', fontSize:'16px', cursor:'pointer', boxShadow:`0 10px 20px ${C.sidebar}40`, transition:'0.3s'}}>
            {editProduct ? 'تحديث المنتج' : 'نشر المنتج الآن 🚀'}
-         </button>
+         </UIButton>
        </div>
     </div>
   );
@@ -328,9 +381,9 @@ export const ProductCard = ({ product, onEdit, onDelete, onToggleVisibility }) =
       <div style={{fontSize:'15px', color:C.gold, fontWeight:'800'}}>{product.price} ريال</div>
       
       <div style={{display:'flex', gap:'6px', marginTop:'15px'}}>
-        <button onClick={()=>onEdit(product)} style={{flex:1, padding:'6px', background:`${C.gold}15`, border:'none', borderRadius:'6px', color:C.gold, cursor:'pointer'}}><PencilSquare size={14}/></button>
-        <button onClick={()=>onToggleVisibility(product)} style={{flex:1, padding:'6px', background:`${C.gray}15`, border:'none', borderRadius:'6px', color:C.gray, cursor:'pointer'}}>{product.isVisible ? <EyeSlash size={14}/> : <Eye size={14}/>}</button>
-        <button onClick={()=>onDelete(product.id)} style={{flex:1, padding:'6px', background:`${C.red}15`, border:'none', borderRadius:'6px', color:C.red, cursor:'pointer'}}><Trash size={14}/></button>
+        <UIButton onClick={()=>onEdit(product)} style={{flex:1, padding:'6px', background:`${C.gold}15`, border:'none', borderRadius:'6px', color:C.gold, cursor:'pointer'}}><PencilSquare size={14}/></UIButton>
+        <UIButton onClick={()=>onToggleVisibility(product)} style={{flex:1, padding:'6px', background:`${C.gray}15`, border:'none', borderRadius:'6px', color:C.gray, cursor:'pointer'}}>{product.isVisible ? <EyeSlash size={14}/> : <Eye size={14}/>}</UIButton>
+        <UIButton onClick={()=>onDelete(product.id)} style={{flex:1, padding:'6px', background:`${C.red}15`, border:'none', borderRadius:'6px', color:C.red, cursor:'pointer'}}><Trash size={14}/></UIButton>
       </div>
     </div>
   </div>

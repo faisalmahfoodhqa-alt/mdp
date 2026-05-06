@@ -5,20 +5,20 @@ import {
   Lock, Telephone, Eye, EyeSlash, 
   Shop, CheckCircle, Envelope, Truck, GeoAlt, Heart, PersonBadge
 } from 'react-bootstrap-icons';
-import { DELIVERY_COMPANIES } from '../data/deliveryCompanies';
 import SellerLocationStep from '../components/registration/SellerLocationStep';
 import SellerSubscriptionStep from '../components/registration/SellerSubscriptionStep';
+import { UIButton } from '../shared/components/ui';
 
 const Register = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const redirectPath = searchParams.get('redirect') || '/';
-  const userType = searchParams.get('type') === 'seller' ? 'seller' : 'customer';
-  const [step, setStep] = useState(() => {
-    const saved = localStorage.getItem('reg_step');
-    if (!saved) return 1;
-    return isNaN(saved) ? saved : parseInt(saved);
+  const [userType, setUserType] = useState(() => {
+    const fromParams = searchParams.get('type');
+    if (fromParams === 'seller' || fromParams === 'customer') return fromParams;
+    return 'customer';
   });
+  const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,7 +29,7 @@ const Register = () => {
   const [selectedDuration, setSelectedDuration] = useState('monthly');
   const [showTransition, setShowTransition] = useState(false);
   const [transitionMsg, setTransitionMsg] = useState('');
-  const [otpInput, setOtpInput] = useState('');
+  const [otpInput, setOtpInput] = useState(['', '', '', '', '', '']);
   const [timerCount, setTimerCount] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -53,29 +53,23 @@ const Register = () => {
     return () => clearInterval(interval);
   }, [step, timerCount]);
 
-  const [customerData, setCustomerData] = useState(() => {
-    const saved = localStorage.getItem('reg_customerData');
-    return saved ? JSON.parse(saved) : { fullName: '', phone: '', password: '', confirmPassword: '' };
+  const [customerData, setCustomerData] = useState({ fullName: '', phone: '', password: '', confirmPassword: '' });
+
+  const [sellerData, setSellerData] = useState({
+    fullName: '', phone: '', email: '', password: '', confirmPassword: '',
+    storeName: '', storeUrl: '', businessActivity: '',
+    address: { street: '', street2: '', state: '', country: 'اليمن' },
+    addressDetails: '', storeLocation: { lat: 15.352, lng: 44.207 },
+    deliveryMode: 'seller'
   });
 
-  const [sellerData, setSellerData] = useState(() => {
-    const saved = localStorage.getItem('reg_sellerData');
-    return saved ? JSON.parse(saved) : {
-      fullName: '', phone: '', email: '', password: '', confirmPassword: '',
-      storeName: '', storeUrl: '', businessActivity: '',
-      address: { street: '', street2: '', state: '', country: 'اليمن' },
-      addressDetails: '', storeLocation: { lat: 15.352, lng: 44.207 }
-    };
-  });
-
-  // حفظ البيانات والخطوة عند كل تغيير
+  // مسح أي بيانات تسجيل قديمة عند الدخول للصفحة
   useEffect(() => {
-    if (step !== 'onboarding' && step !== 'seller-onboarding') {
-      localStorage.setItem('reg_step', step);
-      localStorage.setItem('reg_sellerData', JSON.stringify(sellerData));
-      localStorage.setItem('reg_customerData', JSON.stringify(customerData));
-    }
-  }, [step, sellerData, customerData]);
+    localStorage.removeItem('reg_step');
+    localStorage.removeItem('reg_userType');
+    localStorage.removeItem('reg_sellerData');
+    localStorage.removeItem('reg_customerData');
+  }, []);
 
   const [onboardingData, setOnboardingData] = useState({ city: '', interests: [] });
 
@@ -155,6 +149,7 @@ const Register = () => {
 
   const handleUserTypeChange = (type) => {
     setSearchParams({ type });
+    setUserType(type);
     setStep(1);
     setError('');
   };
@@ -177,42 +172,75 @@ const Register = () => {
         setStep('otp');
       }, 2500);
     } else if (step === 'otp') {
-      if (!otpInput || otpInput.length < 4) {
-        setError('كود التحقق غير صحيح');
-        return;
-      }
-      setLoading(true);
-      if (userType === 'customer') {
-        const res = await registerCustomer(customerData);
-        if (res.success) setStep('onboarding');
-        else setError(res.error);
-        setLoading(false);
-      } else {
-        setLoading(false);
-        setStep('seller-location');
-      }
+      await verifyOtp(otpInput.join(''));
     } else if (step === 'seller-location') {
       if (!sellerData.address.state) {
         setError('يرجى اختيار المحافظة');
         return;
       }
       setStep(2);
-    } else {
+    } else if (step === 2) {
+      setStep('seller-delivery');
+    } else if (step === 'seller-delivery') {
+      if (!sellerData.deliveryMode) {
+        setError('يرجى اختيار طريقة التوصيل');
+        return;
+      }
       setLoading(true);
-      setShowTransition(true);
-      setTimeout(async () => {
-        const res = await registerSeller({ ...sellerData, plan: selectedPlan });
-        setShowTransition(false);
+      setError('');
+      try {
+        const res = await registerSeller(sellerData, selectedPlan, selectedDuration);
         if (res.success) {
-          localStorage.removeItem('reg_step');
-          localStorage.removeItem('reg_sellerData');
-          localStorage.removeItem('reg_customerData');
-          setStep('seller-onboarding');
+          navigate('/seller/welcome');
         } else {
-          setError(res.error);
+          setError(res.error || 'حدث خطأ أثناء التسجيل');
         }
+      } catch (err) {
+        console.error('Seller Registration Error:', err);
+        setError('عذراً، حدث خطأ غير متوقع');
+      } finally {
         setLoading(false);
-      }, 3000);
+      }
+    }
+
+  };
+
+  // دالة التحقق من OTP تأخذ الكود مباشرةً لتجنب مشكلة stale closure
+  const verifyOtp = async (code) => {
+    if (!code || code.length < 6) {
+      setError('يرجى إدخال كود التحقق المكون من 6 أرقام');
+      return;
+    }
+    // التحقق من صحة الرمز (123456 للتدريب)
+    if (code !== '123456') {
+      setLoading(true);
+      setError('');
+      // تأخير وهمي لإيهام المستخدم بأن التحقق يجري
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setLoading(false);
+      setError('رمز التحقق غير صحيح، يرجى المحاولة مجدداً');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      // تأخير وهمي لمحاكاة إرسال SMS والتحقق من الخادم
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      if (userType === 'customer') {
+        const res = await registerCustomer(customerData);
+        if (res.success) {
+          setStep('onboarding');
+        } else {
+          setError(res.error || 'حدث خطأ أثناء التحقق، يرجى المحاولة مرة أخرى');
+        }
+      } else {
+        setStep('seller-location');
+      }
+    } catch (err) {
+      console.error('OTP Verification Error:', err);
+      setError('عذراً، حدث خطأ غير متوقع أثناء التحقق');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -238,11 +266,6 @@ const Register = () => {
     navigate('/');
   };
 
-  const handleFinishSellerOnboarding = (deliveryId) => {
-    updateUser({ deliveryService: deliveryId, hasCompletedSellerOnboarding: true });
-    navigate('/seller/welcome');
-  };
-
   const inpSty = (f) => ({
     display:'flex', 
     alignItems:'center', 
@@ -258,7 +281,16 @@ const Register = () => {
   });
 
   return (
-    <div style={{ minHeight:'100vh', background: colors.pageBackground, direction:'rtl', padding:'40px 20px', fontFamily: 'inherit', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+    <div style={{
+      minHeight: '100vh',
+      background: colors.pageBackground,
+      direction: 'rtl',
+      padding: '12px 0 32px',
+      fontFamily: 'inherit',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'flex-start',
+    }}>
       <style>{`
         @keyframes spinner { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
@@ -284,10 +316,30 @@ const Register = () => {
       )}
 
       {/* Main card spanning to show the rounded bottoms over page background */}
-      <div style={{ maxWidth: '550px', width: '100%', transition:'all 0.4s ease', paddingBottom: '30px' }}>
+      <div style={{
+        maxWidth: 'min(100%, 720px)',
+        width: '100%',
+        transition: 'all 0.4s ease',
+        paddingBottom: '12px',
+      }}>
         
           {step === 1 && (
-            <div style={{ background: colors.cardBackground, padding: '40px', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+            <div
+              style={{
+                background: colors.white,
+                padding: '12px 0 24px',
+                borderRadius: 0,
+                overflow: 'hidden',
+                boxShadow: 'none',
+                width: '100%',
+              }}
+            >
+              <div
+                style={{
+                  paddingLeft: 'clamp(10px, 3.5vw, 20px)',
+                  paddingRight: 'clamp(10px, 3.5vw, 20px)',
+                }}
+              >
               <div style={{ textAlign:'center', marginBottom:'30px' }}>
                 <h2 style={{ color:colors.primary, fontSize:'28px', marginBottom: '10px' }}>
                   إنشاء حساب جديد
@@ -298,12 +350,12 @@ const Register = () => {
               </div>
 
               <div style={{ display:'flex', padding:'5px', borderRadius:'50px', background:'#dbdde0', width: 'fit-content', margin: '0 auto 35px' }}>
-                <button type="button" onClick={()=>handleUserTypeChange('customer')} style={{ display:'flex', alignItems:'center', justifyContent: 'center', gap:'8px', padding:'12px 28px', borderRadius:'40px', border:'none', background:userType==='customer'?colors.gold:'transparent', color:colors.primary, fontWeight:'bold', cursor:'pointer', fontSize: '15px', transition: '0.3s' }}>
+                <UIButton type="button" onClick={()=>handleUserTypeChange('customer')} style={{ display:'flex', alignItems:'center', justifyContent: 'center', gap:'8px', padding:'12px 28px', borderRadius:'40px', border:'none', background:userType==='customer'?colors.gold:'transparent', color:colors.primary, fontWeight:'bold', cursor:'pointer', fontSize: '15px', transition: '0.3s' }}>
                    أنا عميل <PersonBadge size={18}/>
-                </button>
-                <button type="button" onClick={()=>handleUserTypeChange('seller')} style={{ display:'flex', alignItems:'center', justifyContent: 'center', gap:'8px', padding:'12px 28px', borderRadius:'40px', border:'none', background:userType==='seller'?colors.gold:'transparent', color:colors.primary, fontWeight:'bold', cursor:'pointer', fontSize: '15px', transition: '0.3s' }}>
+                </UIButton>
+                <UIButton type="button" onClick={()=>handleUserTypeChange('seller')} style={{ display:'flex', alignItems:'center', justifyContent: 'center', gap:'8px', padding:'12px 28px', borderRadius:'40px', border:'none', background:userType==='seller'?colors.gold:'transparent', color:colors.primary, fontWeight:'bold', cursor:'pointer', fontSize: '15px', transition: '0.3s' }}>
                    أنا بائع <Shop size={18}/>
-                </button>
+                </UIButton>
               </div>
 
               <form onSubmit={handleSubmit}>
@@ -336,7 +388,7 @@ const Register = () => {
                   <div style={inpSty('password')}>
                     <Lock color={colors.gold} size={20}/>
                     <input type={showPassword?'text':'password'} placeholder="******" style={{ flex:1, border:'none', outline:'none', background:'transparent', fontSize: '14.5px', color: colors.primary }} value={userType==='customer'?customerData.password : sellerData.password} onChange={e => userType==='customer'?setCustomerData({...customerData, password:e.target.value}):setSellerData({...sellerData, password:e.target.value})} onFocus={()=>setFocusedField('password')} onBlur={()=>setFocusedField(null)}/>
-                    <button type="button" onClick={()=>setShowPassword(!showPassword)} style={{ background:'none', border:'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>{showPassword ? <EyeSlash size={18} color={colors.primary}/> : <Eye size={18} color={colors.primary}/>}</button>
+                    <UIButton type="button" onClick={()=>setShowPassword(!showPassword)} style={{ background:'none', border:'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, minWidth: 'auto' }}>{showPassword ? <EyeSlash size={18} color={colors.primary}/> : <Eye size={18} color={colors.primary}/>}</UIButton>
                   </div>
                   {fieldErrors.password && touched.password && <div style={{ color:colors.red, fontSize:'12px', marginTop:'4px' }}>{fieldErrors.password}</div>}
                 </div>
@@ -412,7 +464,7 @@ const Register = () => {
                         style={{ width:'18px', height:'18px', accentColor: colors.gold, cursor: 'pointer' }}
                       />
                       <label htmlFor="terms" style={{ fontSize:'14px', color:colors.primary, fontWeight: '500', cursor: 'pointer' }}>
-                        أوافق على <button type="button" onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }} style={{ background:'none', border:'none', color:colors.gold, fontWeight:'bold', textDecoration:'underline', cursor:'pointer', padding: 0 }}>شروط وأحكام فتح المتجر</button> *
+                        أوافق على <UIButton type="button" onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }} style={{ background:'none', border:'none', color:colors.gold, fontWeight:'bold', textDecoration:'underline', cursor:'pointer', padding: 0 }}>شروط وأحكام فتح المتجر</UIButton> *
                       </label>
                     </div>
                     {fieldErrors.terms && touched.terms && <div style={{ color:colors.red, fontSize:'12px', marginTop:'-15px', marginBottom:'15px' }}>{fieldErrors.terms}</div>}
@@ -421,7 +473,7 @@ const Register = () => {
 
                 {error && <div style={{ color:colors.red, textAlign:'center', marginBottom:'20px', padding:'10px', background:`${colors.red}10`, borderRadius:'8px' }}>{error}</div>}
                 
-                <button 
+                <UIButton 
                   type="submit" 
                   disabled={loading || !isFormValid()}
                   style={{ 
@@ -444,17 +496,34 @@ const Register = () => {
                   }}
                 >
                   {userType === 'customer' ? 'إنشاء حساب عميل' : 'إنشاء حساب بائع ←'}
-                </button>
+                </UIButton>
               </form>
 
               <div style={{ textAlign:'center', marginTop:'35px' }}>
                 <p style={{ color:'#666', fontSize: '14.5px', fontWeight: '500' }}>لديك حساب بالفعل؟ <Link to="/login" style={{ color:colors.gold, fontWeight:'bold', textDecoration:'none' }}>تسجيل الدخول</Link></p>
               </div>
+              </div>
             </div>
           )}
 
           {step === 'otp' && (
-            <div style={{ background: colors.cardBackground, padding: '40px', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+            <div
+              style={{
+                background: colors.white,
+                padding: '12px 0 20px',
+                borderRadius: 0,
+                overflow: 'hidden',
+                boxShadow: 'none',
+                width: '100%',
+              }}
+            >
+              <div
+                style={{
+                  textAlign: 'center',
+                  paddingLeft: 'clamp(10px, 3.5vw, 20px)',
+                  paddingRight: 'clamp(10px, 3.5vw, 20px)',
+                }}
+              >
               <h2 style={{ color:colors.primary, fontSize:'30px', fontWeight:'bold', marginBottom: '15px' }}>تأكيد رقم الجوال</h2>
               <p style={{ color:'#555', fontSize:'15px', lineHeight:'1.7', marginBottom: '8px', fontWeight: '500' }}>
                 تم إرسال رمز تحقق صالح لمرة واحدة عبر رسالة<br/>نصية إلى الرقم:
@@ -463,73 +532,164 @@ const Register = () => {
                 {userType === 'customer' ? customerData.phone : sellerData.phone}
               </div>
               
-              <div style={{ display:'flex', justifyContent:'center', gap:'12px', margin:'0 0 25px', direction: 'ltr' }}>
-                {[0,1,2,3].map(i => (
+              <div style={{ display:'flex', justifyContent:'center', gap:'8px', margin:'0 0 25px', direction: 'ltr' }}>
+                {[0,1,2,3,4,5].map(i => (
                   <input 
                     key={i} 
                     id={`otp-${i}`} 
                     autoFocus={i === 0}
                     type="text" 
+                    inputMode="numeric"
                     maxLength="1" 
-                    style={{ width:'60px', height:'60px', textAlign:'center', fontSize:'24px', fontWeight:'bold', borderRadius:'14px', border:`1.5px solid ${otpInput[i] ? colors.gold : colors.border}`, outline:'none', background: 'transparent', transition: 'all 0.3s ease', color: colors.primary }} 
+                    style={{ width:'48px', height:'58px', textAlign:'center', fontSize:'22px', fontWeight:'bold', borderRadius:'12px', border:`1.5px solid ${otpInput[i] ? colors.gold : colors.border}`, outline:'none', background: otpInput[i] ? `${colors.gold}08` : 'transparent', transition: 'all 0.2s ease', color: colors.primary }} 
                     value={otpInput[i]||''} 
                     onChange={e => { 
-                      const val=e.target.value.replace(/\D/g, ''); 
+                      const val = e.target.value.replace(/\D/g, '').slice(-1); 
                       if(val){ 
-                        const n=otpInput.split(''); n[i]=val; setOtpInput(n.join('')); 
-                        if(i<3) document.getElementById(`otp-${i+1}`).focus(); 
+                        const n = [...otpInput]; 
+                        n[i] = val; 
+                        setOtpInput(n); 
+                        if (i < 5) {
+                          document.getElementById(`otp-${i+1}`).focus();
+                        } else {
+                          // آخر خانة — تأكيد تلقائي بالكود مباشرة
+                          const fullCode = n.join('');
+                          if (fullCode.length === 6) {
+                            verifyOtp(fullCode);
+                          }
+                        }
                       } 
                     }}
                     onKeyDown={e => {
                       if(e.key === 'Backspace') {
-                        const n = otpInput.split('');
+                        const n = [...otpInput];
                         if (n[i]) {
                           n[i] = '';
-                          setOtpInput(n.join(''));
+                          setOtpInput(n);
                         } else if (i > 0) {
                           document.getElementById(`otp-${i-1}`).focus();
                         }
                       }
                     }}
-                    onFocus={(e) => { e.target.style.borderColor = colors.gold; e.target.style.boxShadow = `0 0 0 4px ${colors.gold}15`; }} 
+                    onFocus={(e) => { e.target.style.borderColor = colors.gold; e.target.style.boxShadow = `0 0 0 3px ${colors.gold}20`; }} 
                     onBlur={(e) => { e.target.style.borderColor = otpInput[i] ? colors.gold : colors.border; e.target.style.boxShadow = 'none'; }}  
                   />
                 ))}
               </div>
               
-              <p style={{ marginTop: '0', marginBottom: '40px', fontSize: '14.5px', color: '#666', fontWeight: '500' }}>
+              <p style={{ marginTop: '0', marginBottom: '20px', fontSize: '14.5px', color: '#666', fontWeight: '500' }}>
                 {canResend ? (
-                  <button onClick={() => { setTimerCount(60); setCanResend(false); }} style={{ color:colors.gold, background:'none', border:'none', fontWeight:'bold', cursor: 'pointer', padding: 0 }}>إعادة إرسال الرمز</button>
+                  <UIButton onClick={() => { setTimerCount(60); setCanResend(false); }} style={{ color:colors.gold, background:'none', border:'none', fontWeight:'bold', cursor: 'pointer', padding: 0 }}>إعادة إرسال الرمز</UIButton>
                 ) : (
                   <>إعادة إرسال الرمز خلال <span style={{ color: colors.gold, fontWeight: 'bold' }}>{timerCount} ثانية</span></>
                 )}
               </p>
+
+              {error && (
+                <div style={{ 
+                  color: colors.red, 
+                  background: `${colors.red}15`, 
+                  padding: '12px', 
+                  borderRadius: '10px', 
+                  marginBottom: '20px',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}>
+                  {error}
+                </div>
+              )}
               
               <div style={{ display: 'flex', gap: '15px' }}>
-                 <button onClick={()=>setStep(1)} style={{ flex: 1, padding:'16px', background:'transparent', border:`1px solid ${colors.gold}`, borderRadius:'14px', color:colors.gold, fontWeight:'bold', fontSize:'16px', cursor: 'pointer' }}>
+                 <UIButton onClick={() => { setStep(1); setOtpInput(['', '', '', '', '', '']); setError(''); }} style={{ flex: 1, padding:'16px', background:'transparent', border:`1px solid ${colors.gold}`, borderRadius:'14px', color:colors.gold, fontWeight:'bold', fontSize:'16px', cursor: 'pointer' }}>
                   تعديل الرقم
-                </button>
-                <button onClick={handleSubmit} style={{ flex: 1.5, padding:'16px', background:colors.gold, border:'none', borderRadius:'14px', color:colors.primary, fontWeight:'bold', fontSize:'16px', cursor: 'pointer' }}>
-                  تأكيد الرمز والمتابعة
-                </button>
+                </UIButton>
+                <UIButton 
+                  onClick={handleSubmit} 
+                  disabled={loading}
+                  style={{ 
+                    flex: 1.5, 
+                    padding:'16px', 
+                    background: loading ? '#ccc' : colors.gold, 
+                    border:'none', 
+                    borderRadius:'14px', 
+                    color:colors.primary, 
+                    fontWeight:'bold', 
+                    fontSize:'16px', 
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <div className="spinner-border spinner-border-sm" role="status" />
+                      جاري التحقق...
+                    </>
+                  ) : 'تأكيد الرمز والمتابعة'}
+                </UIButton>
+              </div>
               </div>
             </div>
           )}
 
           {step === 'seller-location' && (
-             <div style={{ background: colors.white, padding: '40px', borderRadius: '30px' }}>
+            <div
+              style={{
+                background: colors.white,
+                padding: '12px 0 0',
+                borderRadius: 0,
+                overflow: 'hidden',
+                boxShadow: 'none',
+                width: '100%',
+              }}
+            >
               <SellerLocationStep sellerData={sellerData} setSellerData={setSellerData} yemenStates={yemenStates} colors={colors} onSubmit={handleSubmit} onBack={()=>setStep('otp')} />
             </div>
           )}
 
           {step === 2 && (
-             <div style={{ background: colors.white, padding: '40px', borderRadius: '30px' }}>
-               <SellerSubscriptionStep colors={colors} onSubmit={handleSubmit} onBack={()=>setStep('seller-location')} loading={loading} selectedPlan={selectedPlan} setSelectedPlan={setSelectedPlan} selectedDuration={selectedDuration} setSelectedDuration={setSelectedDuration} />
-             </div>
+            <div
+              style={{
+                background: colors.white,
+                padding: '12px 0 20px',
+                borderRadius: 0,
+                overflow: 'hidden',
+                boxShadow: 'none',
+                width: '100%',
+              }}
+            >
+              <SellerSubscriptionStep
+                colors={colors}
+                onSubmit={handleSubmit}
+                onBack={() => setStep('seller-location')}
+                loading={loading}
+                selectedPlan={selectedPlan}
+                setSelectedPlan={setSelectedPlan}
+                selectedDuration={selectedDuration}
+                setSelectedDuration={setSelectedDuration}
+              />
+            </div>
           )}
 
           {step === 'onboarding' && (
-            <div style={{ background: colors.cardBackground, padding: '40px 30px', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+            <div
+              style={{
+                background: colors.white,
+                padding: '12px 0 24px',
+                borderRadius: 0,
+                overflow: 'hidden',
+                boxShadow: 'none',
+                width: '100%',
+              }}
+            >
+              <div
+                style={{
+                  paddingLeft: 'clamp(10px, 3.5vw, 20px)',
+                  paddingRight: 'clamp(10px, 3.5vw, 20px)',
+                }}
+              >
               {/* Progress bar */}
               <div style={{ width: '100%', height: '4px', background: `${colors.gold}30`, borderRadius: '2px', marginBottom: '30px', position: 'relative' }}>
                 <div style={{ position: 'absolute', right: 0, top: 0, height: '100%', width: '40%', background: colors.gold, borderRadius: '2px' }} />
@@ -585,25 +745,93 @@ const Register = () => {
                 </div>
               </div>
 
-              <button onClick={handleFinishCustomerOnboarding} style={{ width:'100%', padding:'18px', background:colors.gold, border:'none', borderRadius:'14px', color:colors.primary, fontWeight:'bold', marginTop:'40px', fontSize:'18px', cursor: 'pointer', transition: '0.3s' }}>ابدأ التسوق الآن</button>
+              <UIButton onClick={handleFinishCustomerOnboarding} style={{ width:'100%', padding:'18px', background:colors.gold, border:'none', borderRadius:'14px', color:colors.primary, fontWeight:'bold', marginTop:'40px', fontSize:'18px', cursor: 'pointer', transition: '0.3s' }}>ابدأ التسوق الآن</UIButton>
+              </div>
             </div>
           )}
 
-          {step === 'seller-onboarding' && (
-            <div style={{ background: colors.white, padding: '40px', borderRadius: '30px' }}>
-              <div style={{ textAlign:'center' }}>
+          {step === 'seller-delivery' && (
+            <div
+              style={{
+                background: colors.white,
+                padding: '12px 0 20px',
+                borderRadius: 0,
+                overflow: 'hidden',
+                boxShadow: 'none',
+                width: '100%',
+              }}
+            >
+              <div style={{ textAlign: 'center', paddingLeft: 'clamp(10px, 3.5vw, 20px)', paddingRight: 'clamp(10px, 3.5vw, 20px)' }}>
                 <Truck size={60} color={colors.gold} />
                 <h2 style={{ color:colors.primary, fontSize:'28px', marginTop:'20px' }}>خيارات التوصيل</h2>
+                <p style={{ color: '#666', fontSize: '14px', marginTop: '8px' }}>
+                  اختر طريقة إدارة توصيل طلبات متجرك
+                </p>
                 <div style={{ display:'flex', flexDirection:'column', gap:'20px', marginTop:'35px' }}>
-                  {DELIVERY_COMPANIES.map(company => (
-                    <button key={company.id} onClick={()=>handleFinishSellerOnboarding(company.id)} style={{ padding:'25px', borderRadius:'20px', border:`2px solid ${colors.gold}15`, background:'white', display:'flex', alignItems:'center', gap:'20px', cursor:'pointer', transition:'0.3s' }}>
-                      {company.logo 
-                        ? <img src={company.logo} alt="" style={{ width:'55px', height:'55px', objectFit:'contain' }} />
-                        : <div style={{ width:'55px', height:'55px', borderRadius:'14px', background:`${colors.gold}15`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Truck size={30} color={colors.gold} /></div>
-                      }
-                      <div style={{ fontWeight:'bold', fontSize:'20px', color:colors.primary }}>{company.name}</div>
-                    </button>
-                  ))}
+                  <UIButton
+                    type="button"
+                    onClick={() => setSellerData({ ...sellerData, deliveryMode: 'seller' })}
+                    style={{
+                      padding: '25px',
+                      borderRadius: '20px',
+                      border: `2px solid ${sellerData.deliveryMode === 'seller' ? colors.gold : `${colors.gold}15`}`,
+                      background: sellerData.deliveryMode === 'seller' ? `${colors.gold}10` : 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '20px',
+                      cursor: 'pointer',
+                      transition: '0.3s',
+                      textAlign: 'right'
+                    }}
+                  >
+                    <div style={{ width: '55px', height: '55px', borderRadius: '14px', background: `${colors.gold}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Truck size={30} color={colors.gold} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '20px', color: colors.primary }}>توصيل ذاتي</div>
+                      <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.55 }}>
+                        أنت تنفّذ الشحن بنفسك. بعد إنشاء المتجر ستضبط من لوحة التحكم موقع المتجر وسعراً لكل كيلومتر؛ الموقع يستخدمهما لعرض <strong>تقدير رسوم الشحن</strong> للعميل (مسافة عنوانه × السعر)، وليس لأن المنصّة تشحن عنك.
+                      </div>
+                    </div>
+                  </UIButton>
+
+                  <UIButton
+                    type="button"
+                    onClick={() => setSellerData({ ...sellerData, deliveryMode: 'platform' })}
+                    style={{
+                      padding: '25px',
+                      borderRadius: '20px',
+                      border: `2px solid ${sellerData.deliveryMode === 'platform' ? colors.gold : `${colors.gold}15`}`,
+                      background: sellerData.deliveryMode === 'platform' ? `${colors.gold}10` : 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '20px',
+                      cursor: 'pointer',
+                      transition: '0.3s',
+                      textAlign: 'right'
+                    }}
+                  >
+                    <div style={{ width: '55px', height: '55px', borderRadius: '14px', background: `${colors.gold}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Shop size={28} color={colors.gold} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '20px', color: colors.primary }}>توصيل عبر المنصّة (توريد نت)</div>
+                      <div style={{ fontSize: '13px', color: '#666', lineHeight: 1.55 }}>
+                        رسوم الشحن للعميل تُحسب على الموقع حسب المسافة وسياسة المنصّة. الطلب يظهر في <strong>لوحة الإدارة</strong> لدى مشرف التوصيل لمتابعة التنفيذ، وتستلم أنت أيضاً الإشعار والطلب كبائع.
+                      </div>
+                    </div>
+                  </UIButton>
+                </div>
+
+                {error && <div style={{ color: colors.red, textAlign: 'center', marginTop: '15px', padding: '10px', background: `${colors.red}10`, borderRadius: '8px' }}>{error}</div>}
+
+                <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
+                  <UIButton type="button" onClick={handleSubmit} style={{ flex: 2, padding: '18px', background: colors.gold, border: 'none', borderRadius: '15px', color: colors.primary, fontWeight: '900', fontSize: '18px', cursor: 'pointer' }}>
+                    متابعة
+                  </UIButton>
+                  <UIButton type="button" onClick={() => setStep(2)} style={{ flex: 1, padding: '18px', background: 'transparent', border: `2px solid ${colors.gold}`, borderRadius: '15px', color: colors.gold, fontWeight: '900', fontSize: '16px', cursor: 'pointer' }}>
+                    رجوع
+                  </UIButton>
                 </div>
               </div>
             </div>
@@ -624,7 +852,7 @@ const Register = () => {
                 <li style={{ marginBottom: '15px' }}>للمنصة الحق في إغلاق أي متجر يثبت تلاعبه أو كثرة الشكاوى ضده.</li>
               </ol>
             </div>
-            <button onClick={()=>setShowTermsModal(false)} style={{ width:'100%', padding:'16px', background:colors.primary, color:'white', border:'none', borderRadius:'14px', marginTop:'35px', fontWeight:'bold', fontSize: '16px', cursor: 'pointer' }}>فهمت وموافق</button>
+            <UIButton onClick={()=>setShowTermsModal(false)} style={{ width:'100%', padding:'16px', background:colors.primary, color:'white', border:'none', borderRadius:'14px', marginTop:'35px', fontWeight:'bold', fontSize: '16px', cursor: 'pointer' }}>فهمت وموافق</UIButton>
           </div>
         </div>
       )}

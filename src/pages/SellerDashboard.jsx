@@ -4,9 +4,10 @@ import { Link } from 'react-router-dom';
 import { 
   PlusCircle, BoxArrowRight, GraphUp, Search, 
   XCircle, HouseDoor, FileText, Bell, Person,
-  ShieldCheck, BoxSeam, ArrowRightSquare
+  ShieldCheck, BoxSeam, ArrowRightSquare, BagHeart
 } from 'react-bootstrap-icons';
 import { useAuth } from '../context/AuthContext';
+import { useBackend } from '../config/backend';
 
 // Import refactored components
 import { C } from '../components/dashboard/seller/constants';
@@ -17,9 +18,12 @@ import { VerificationPage, VerificationBanner } from '../components/dashboard/se
 import { NotificationsSection } from '../components/dashboard/seller/NotificationsSection';
 import { OrdersSection } from '../components/dashboard/seller/OrdersSection';
 import { ProfileSection } from '../components/dashboard/seller/ProfileSection';
+import { UIButton } from '../shared/components/ui';
+import { backendApi } from '../api/backendApi';
+// Removed firebaseService import
 
 const SellerDashboard = () => {
-  const { user, updateUser, logout, getSubscriptionStatus, addProduct, updateProduct, deleteProduct } = useAuth();
+  const { user, updateUser, logout, getAccountStatus, addProduct, updateProduct, deleteProduct, refreshOrders } = useAuth();
   const [page, setPage] = useState('home');
   const [showForm, setShowForm] = useState(false);
   const [editProduct, setEditProduct] = useState(null);
@@ -31,8 +35,66 @@ const SellerDashboard = () => {
   const [pendingVal, setPendingVal] = useState('');
   const [reqReason, setReqReason] = useState('');
 
-  const status = getSubscriptionStatus();
+  const status = getAccountStatus();
   const products = user?.products || [];
+
+  const getAllOrders = () => {
+    try {
+      const orders = JSON.parse(localStorage.getItem('all_orders') || '[]');
+      return Array.isArray(orders) ? orders : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const sellerOrders = React.useMemo(() => {
+    if (useBackend) {
+      return Array.isArray(user?.orders) ? user.orders : [];
+    }
+    const all = getAllOrders();
+    const sellerIdStr = user?.id != null ? String(user.id) : '';
+    const sellerStoreName = (user?.storeName || '').trim();
+    const sellerUsername = (user?.username || '').trim();
+
+    const isMyItem = (item) => {
+      const itemSellerId = item?.sellerId ?? item?.seller?.id;
+      if (itemSellerId != null && sellerIdStr && String(itemSellerId) === sellerIdStr) return true;
+      const itemStoreName = (item?.storeName || item?.seller?.name || (typeof item?.seller === 'string' ? item.seller : '') || '').trim();
+      if (sellerStoreName && itemStoreName && itemStoreName === sellerStoreName) return true;
+      if (sellerUsername && itemStoreName && itemStoreName === sellerUsername) return true;
+      return false;
+    };
+
+    const mine = [];
+    for (const o of all) {
+      const items = Array.isArray(o?.items) ? o.items : [];
+      if (items.some(isMyItem)) mine.push(o);
+    }
+    return mine;
+  }, [user?.id, user?.orders, user?.storeName, user?.username]);
+
+  const sellerMetrics = React.useMemo(() => {
+    const orders = sellerOrders;
+    const totalOrders = orders.length;
+
+    const todayStr = new Date().toDateString();
+    const newToday = orders.filter((o) => {
+      if (!o?.date) return false;
+      try { return new Date(o.date).toDateString() === todayStr; } catch { return false; }
+    }).length;
+
+    const salesToday = orders
+      .filter((o) => {
+        if (!o?.date) return false;
+        if (!o?.status) return false;
+        try { return new Date(o.date).toDateString() === todayStr && o.status === 'delivered'; } catch { return false; }
+      })
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+    const pendingCount = orders.filter((o) => (o?.status || 'pending') === 'pending').length;
+
+    return { totalOrders, newToday, salesToday, pendingCount };
+  }, [sellerOrders]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -55,25 +117,26 @@ const SellerDashboard = () => {
   );
 
   const stats = [
-    { icon: <FileText size={24} color={C.gold}/>, label: 'إجمالي الطلبات', value: '0', sub: 'طلب جديد اليوم', color: C.gold },
-    { icon: <GraphUp size={24} color={C.green}/>, label: 'المبيعات اليومية', value: '0', sub: 'ريال يمني', color: C.green },
+    { icon: <FileText size={24} color={C.gold}/>, label: 'إجمالي الطلبات', value: String(sellerMetrics.totalOrders), sub: `${sellerMetrics.newToday} طلب جديد اليوم`, color: C.gold },
+    { icon: <GraphUp size={24} color={C.green}/>, label: 'المبيعات اليومية', value: String(sellerMetrics.salesToday.toLocaleString()), sub: 'ريال يمني (طلبات مُسلمة)', color: C.green },
     { icon: <PlusCircle size={24} color={C.sidebar}/>, label: 'المنتجات العامة', value: products.length, sub: `${products.filter(p=>p.isVisible).length} منتج نشط`, color: C.sidebar },
   ];
 
   const navItems = [
     { key: 'home', icon: <HouseDoor />, label: 'الرئيسية' },
     { key: 'products', icon: <BoxSeam />, label: 'منتجاتي' },
-    { key: 'orders', icon: <FileText />, label: 'الطلبات', badge: 0 },
+    { key: 'orders', icon: <FileText />, label: 'الطلبات', badge: sellerMetrics.pendingCount },
+    { key: 'purchases', icon: <BagHeart />, label: 'مشترياتي' },
     { key: 'ads', icon: <GraphUp />, label: 'الإعلانات' },
     { key: 'profile', icon: <Person />, label: 'إعدادات المتجر' },
   ];
 
   // Helper functions
-  const handleSaveProduct = (prod) => {
+  const handleSaveProduct = async (prod) => {
     if (editProduct) {
-      updateProduct(editProduct.id, prod);
+      await updateProduct(editProduct.id, prod);
     } else {
-      const res = addProduct(prod);
+      const res = await addProduct(prod);
       if (!res.success) {
         alert(res.error);
         return;
@@ -94,14 +157,20 @@ const SellerDashboard = () => {
   };
 
   const submitVerification = (docs) => {
-    updateUser({ verificationDocs: docs, verificationStatus: 'pending' });
+    const { storeFrontPhotoUrl, ...verificationDocs } = docs;
+    updateUser({
+      verificationDocs,
+      verificationStatus: 'pending',
+      verificationSubmittedAt: new Date().toISOString(),
+      ...(storeFrontPhotoUrl ? { storeFrontPhotoUrl } : {})
+    });
   };
 
-  const submitChangeRequest = () => {
-    if (!pendingVal) { alert('يرجى إدخال القيمة الجديدة'); return; }
-    const requests = JSON.parse(localStorage.getItem('accountChangeRequests') || '[]');
-    requests.push({
-      id: Date.now(),
+  const submitChangeRequest = async () => {
+    if (!pendingVal) { alert('يرجى إدخل القيمة الجديدة'); return; }
+
+    const row = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
       sellerId: user.id,
       sellerName: user.storeName,
       type: changeReqModal.type,
@@ -111,11 +180,29 @@ const SellerDashboard = () => {
       reason: reqReason,
       status: 'pending',
       date: new Date().toISOString()
-    });
-    localStorage.setItem('accountChangeRequests', JSON.stringify(requests));
+    };
+
+    if (useBackend) {
+      try {
+        await backendApi.sellerChangeRequest(row);
+      } catch (e) {
+        alert(e.message || 'تعذر إرسال الطلب');
+        return;
+      }
+    }
+
+    let reqs = [];
+    try {
+      reqs = JSON.parse(localStorage.getItem('change_requests')) || [];
+    } catch (e) {}
+    reqs.push(row);
+    localStorage.setItem('change_requests', JSON.stringify(reqs));
+    localStorage.setItem('accountChangeRequests', JSON.stringify(reqs));
+
     alert('تم إرسال طلب التعديل للإدارة بنجاح.');
     setChangeReqModal({ ...changeReqModal, show: false });
-    setPendingVal(''); setReqReason('');
+    setPendingVal('');
+    setReqReason('');
   };
 
   return (
@@ -136,9 +223,9 @@ const SellerDashboard = () => {
             style={{ 
               background: `${C.gold}20`, 
               color: C.gold, 
-              padding: '6px 12px', 
-              borderRadius: '8px', 
-              fontSize: '12px', 
+              padding: '4px 9px', 
+              borderRadius: '7px', 
+              fontSize: '11px', 
               fontWeight: 'bold', 
               textDecoration: 'none',
               border: `1px solid ${C.gold}40`
@@ -148,7 +235,7 @@ const SellerDashboard = () => {
           </Link>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '15px' }}>
-              <button 
+              <UIButton 
                 onClick={() => setPage('notifications')} 
                 style={{ 
                   background: 'rgba(255,255,255,0.1)', 
@@ -181,19 +268,18 @@ const SellerDashboard = () => {
                    {(user.notifications || []).filter(n => !n.read).length}
                  </span>
                )}
-             </button>
+             </UIButton>
 
-              {/* Back to Home Button */}
-              <Link 
-                to="/" 
+              {/* زر تسجيل الخروج في الهيدر */}
+              <UIButton
+                onClick={logout}
                 style={{ 
-                  background: 'rgba(255,255,255,0.1)', 
-                  border: 'none', 
-                  color: 'white', 
+                  background: 'rgba(231,76,60,0.15)', 
+                  border: '1px solid rgba(231,76,60,0.4)', 
+                  color: '#e74c3c', 
                   padding: isMobile ? '8px 12px' : '10px 15px', 
                   borderRadius: '10px', 
                   cursor: 'pointer',
-                  textDecoration: 'none',
                   fontSize: isMobile ? '12px' : '13px',
                   display: 'flex',
                   alignItems: 'center',
@@ -201,9 +287,9 @@ const SellerDashboard = () => {
                   fontWeight: 'bold'
                 }}
               >
-                {!isMobile && 'المتجر الرئيسي'}
-                <ArrowRightSquare size={isMobile ? 18 : 20} style={{ transform: 'rotate(180deg)' }}/>
-              </Link>
+                {!isMobile && 'تسجيل الخروج'}
+                <BoxArrowRight size={isMobile ? 18 : 20}/>
+              </UIButton>
 
              <div style={{ textAlign: 'left', display: isMobile ? 'none' : 'block' }}>
                 <div style={{ fontSize: '13px', fontWeight: '700' }}>{user.fullName}</div>
@@ -243,6 +329,48 @@ const SellerDashboard = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '20px' }}>
                         {stats.map((s, i) => <Stat key={i} {...s} />)}
                       </div>
+
+                      {/* آخر الطلبات */}
+                      {sellerOrders.length > 0 ? (
+                        <div style={{ background: C.card, borderRadius: '20px', padding: isMobile ? '20px' : '30px', border: `1px solid ${C.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: C.text, margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <FileText size={20} color={C.gold}/> آخر الطلبات
+                            </h3>
+                            <UIButton onClick={() => setPage('orders')} style={{ background: `${C.gold}15`, border: `1px solid ${C.gold}30`, color: C.gold, padding: '6px 16px', borderRadius: '10px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
+                              عرض الكل
+                            </UIButton>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {sellerOrders.slice(0, 5).map(order => {
+                              const statusMap = {
+                                pending: { label: 'قيد الانتظار', color: '#856404', bg: '#fff9e6' },
+                                processing: { label: 'جاري التجهيز', color: '#3730a3', bg: '#eef2ff' },
+                                shipping: { label: 'جاري التوصيل', color: '#065f46', bg: '#ecfdf5' },
+                                delivered: { label: 'تم التسليم', color: '#166534', bg: '#f0fdf4' },
+                                cancelled: { label: 'ملغي', color: '#991b1b', bg: '#fef2f2' }
+                              };
+                              const s = statusMap[order.status || 'pending'] || statusMap.pending;
+                              const total = (order.items || []).reduce((sum, it) => sum + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0);
+                              return (
+                                <div key={order.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '12px', background: C.bg, border: `1px solid ${C.border}`, gap: '12px', flexWrap: 'wrap' }}>
+                                  <div style={{ flex: 1, minWidth: '140px' }}>
+                                    <div style={{ fontWeight: '700', fontSize: '14px', color: C.text }}>طلب #{order.id}</div>
+                                    <div style={{ fontSize: '12px', color: C.gray }}>{order.customerName || 'عميل'} — {order.date ? new Date(order.date).toLocaleDateString('ar-YE') : ''}</div>
+                                  </div>
+                                  <div style={{ fontWeight: '800', color: C.gold, fontSize: '14px', whiteSpace: 'nowrap' }}>{total.toLocaleString()} ريال</div>
+                                  <span style={{ background: s.bg, color: s.color, padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', border: `1px solid ${s.color}20`, whiteSpace: 'nowrap' }}>{s.label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ background: C.card, borderRadius: '20px', padding: '40px', textAlign: 'center', border: `1px solid ${C.border}` }}>
+                          <FileText size={40} color={`${C.gold}30`} style={{ marginBottom: '15px' }} />
+                          <p style={{ color: C.gray, fontSize: '14px', margin: 0 }}>لا توجد طلبات حتى الآن — ستظهر هنا فور ورود أول طلب من العملاء</p>
+                        </div>
+                      )}
                   </div>
                 ) : (
                   <div style={{ background: C.card, borderRadius: '20px', padding: '40px', textAlign: 'center', border: `1px solid ${C.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
@@ -255,7 +383,7 @@ const SellerDashboard = () => {
                       <br/> 
                       <b>الخطوة التالية:</b> يرجى التأكد من رفع وثائق الهوية في قسم "التوثيق" لتسريع عملية التفعيل.
                     </p>
-                    <button onClick={() => setPage('verification')} style={{ background: C.sidebar, color: C.gold, border: 'none', padding: '12px 30px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>انتقل لتوثيق الهوية</button>
+                    <UIButton onClick={() => setPage('verification')} style={{ background: C.sidebar, color: C.gold, border: 'none', padding: '12px 30px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>انتقل لتوثيق الهوية</UIButton>
                   </div>
                 )
               )}
@@ -269,7 +397,7 @@ const SellerDashboard = () => {
                         <p style={{ color: C.gray, fontSize: '13px', margin: '5px 0 0' }}>إدارة وتعديل منتجات متجرك المعروضة</p>
                       </div>
                       {!showForm && (
-                        <button 
+                        <UIButton 
                           onClick={() => {
                             if (!user.isVerified) {
                               alert('يرجى توثيق حسابك أولاً (رفع الهوية/الجواز) لتتمكن من إضافة منتجات لمتجرك.');
@@ -295,7 +423,7 @@ const SellerDashboard = () => {
                           <PlusCircle size={18}/> 
                           {!user.isVerified && <ShieldCheck size={16} />}
                           إضافة منتج جديد
-                        </button>
+                        </UIButton>
                       )}
                     </div>
 
@@ -340,7 +468,9 @@ const SellerDashboard = () => {
               )}
 
               {page === 'orders' && (
-                user.isApproved ? <OrdersSection user={user} /> : (
+                user.isApproved ? (
+                  <OrdersSection user={user} orders={sellerOrders} refreshOrders={refreshOrders} />
+                ) : (
                   <div style={{ background: C.card, borderRadius: '20px', padding: '40px', textAlign: 'center', border: `1px solid ${C.border}` }}>
                     <FileText size={40} color={C.gray} style={{ marginBottom: '15px', opacity: 0.5 }} />
                     <h3 style={{ color: C.text }}>إدارة الطلبات</h3>
@@ -381,6 +511,72 @@ const SellerDashboard = () => {
 
               {page === 'notifications' && <NotificationsSection user={user} updateUser={updateUser} />}
               {page === 'verification' && <VerificationPage user={user} submitVerification={submitVerification} />}
+
+              {page === 'purchases' && (() => {
+                const allOrders = (() => { try { return JSON.parse(localStorage.getItem('all_orders') || '[]'); } catch { return []; } })();
+                const myPurchases = allOrders.filter(o => String(o.userId) === String(user.id) || String(o.customerId) === String(user.id));
+                const statusMap = {
+                  pending: { label: 'قيد الانتظار', color: '#856404', bg: '#fff9e6' },
+                  processing: { label: 'جاري التجهيز', color: '#3730a3', bg: '#eef2ff' },
+                  shipping: { label: 'جاري التوصيل', color: '#065f46', bg: '#ecfdf5' },
+                  delivered: { label: 'تم التسليم', color: '#166534', bg: '#f0fdf4' },
+                  cancelled: { label: 'ملغي', color: '#991b1b', bg: '#fef2f2' },
+                  pending_payment: { label: 'بانتظار الدفع', color: '#92400e', bg: '#fffbeb' },
+                };
+                return (
+                  <div style={{ background: C.card, borderRadius: '20px', padding: isMobile ? '20px' : '30px', border: `1px solid ${C.border}`, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '25px' }}>
+                      <BagHeart size={24} color={C.gold} />
+                      <div>
+                        <h2 style={{ fontSize: '20px', fontWeight: '800', color: C.text, margin: 0 }}>مشترياتي</h2>
+                        <p style={{ color: C.gray, fontSize: '13px', margin: '4px 0 0' }}>الطلبات التي قمت بها كمشتري من متاجر أخرى</p>
+                      </div>
+                    </div>
+                    {myPurchases.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '60px 20px', color: C.gray }}>
+                        <BagHeart size={50} style={{ opacity: 0.15, marginBottom: '15px', display: 'block', margin: '0 auto 15px' }} />
+                        <p style={{ fontSize: '15px' }}>لم تقم بأي عملية شراء بعد</p>
+                        <Link to="/" style={{ display: 'inline-block', marginTop: '15px', padding: '10px 25px', background: C.sidebar, color: C.gold, borderRadius: '12px', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}>تصفح المتاجر</Link>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        {myPurchases.map(order => {
+                          const s = statusMap[order.status || 'pending'] || statusMap.pending;
+                          const total = order.total || (order.items || []).reduce((sum, it) => sum + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0);
+                          return (
+                            <div key={order.id} style={{ background: C.bg, borderRadius: '14px', padding: '16px 20px', border: `1px solid ${C.border}` }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                                <div>
+                                  <div style={{ fontWeight: '700', fontSize: '14px', color: C.text }}>طلب #{order.id}</div>
+                                  <div style={{ fontSize: '12px', color: C.gray, marginTop: '3px' }}>{order.date ? new Date(order.date).toLocaleDateString('ar-YE') : ''}</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  <span style={{ fontWeight: '800', color: C.gold, fontSize: '15px' }}>{Number(total).toLocaleString()} ريال</span>
+                                  <span style={{ background: s.bg, color: s.color, padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', border: `1px solid ${s.color}20` }}>{s.label}</span>
+                                </div>
+                              </div>
+                              {(order.items || []).length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  {order.items.map((item, idx) => (
+                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: C.card, borderRadius: '10px', padding: '10px 14px' }}>
+                                      {item.image && <img src={item.image} alt="" style={{ width: '45px', height: '45px', borderRadius: '8px', objectFit: 'cover' }} />}
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: '600', fontSize: '13px', color: C.text }}>{item.name}</div>
+                                        <div style={{ fontSize: '11px', color: C.gray }}>من: {item.storeName || item.seller?.name || 'متجر'} · الكمية: {item.quantity || 1}</div>
+                                      </div>
+                                      <div style={{ fontWeight: '700', color: C.gold, fontSize: '13px' }}>{((Number(item.price) || 0) * (Number(item.quantity) || 1)).toLocaleString()} ر</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
@@ -390,18 +586,16 @@ const SellerDashboard = () => {
         {navItems.map((item) => {
           const isActive = page === item.key;
           return (
-            <button key={item.key} onClick={() => { setPage(item.key); setShowForm(false); setEditProduct(null); }} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: isActive ? C.gold : 'rgba(255,255,255,0.5)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s' }}>
+            <UIButton key={item.key} onClick={() => { setPage(item.key); setShowForm(false); setEditProduct(null); }} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: isActive ? C.gold : 'rgba(255,255,255,0.5)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s' }}>
               <div style={{ fontSize: isMobile ? '20px' : '24px', transform: isActive ? 'scale(1.1)' : 'scale(1)' }}>{item.icon}</div>
               <span style={{ fontSize: '10px', fontWeight: isActive ? '700' : '400', opacity: isActive ? 1 : 0.8 }}>{item.label}</span>
               {item.badge > 0 && (
                 <span style={{ position: 'absolute', top: '-5px', right: '25%', background: C.red, color: C.white, fontSize: '9px', fontWeight: 'bold', minWidth: '15px', height: '15px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{item.badge}</span>
               )}
-            </button>
+            </UIButton>
           );
         })}
-        <button onClick={logout} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'rgba(231,76,60,0.8)', cursor: 'pointer' }}>
-          <BoxArrowRight size={isMobile ? 20 : 24} /><span style={{ fontSize: '10px' }}>خروج</span>
-        </button>
+
       </div>
 
       {changeReqModal.show && (
@@ -409,7 +603,7 @@ const SellerDashboard = () => {
           <div style={{ background: C.white, borderRadius: '24px', width: '100%', maxWidth: '450px', padding: '30px', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, fontSize: '18px', color: C.text }}>طلب تعديل: {changeReqModal.label}</h3>
-              <button onClick={() => setChangeReqModal({ ...changeReqModal, show: false })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.gray }}><XCircle size={24}/></button>
+              <UIButton onClick={() => setChangeReqModal({ ...changeReqModal, show: false })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.gray }}><XCircle size={24}/></UIButton>
             </div>
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', fontSize: '13px', color: C.gray, marginBottom: '8px' }}>القيمة الحالية</label>
@@ -424,8 +618,8 @@ const SellerDashboard = () => {
               <textarea value={reqReason} onChange={(e) => setReqReason(e.target.value)} placeholder="وضح سبب الرغبة في التغيير للإدارة..." style={{ width: '100%', height: '80px', padding: '12px', borderRadius: '12px', border: `1px solid ${C.border}`, outline: 'none', fontSize: '14px', resize: 'none' }} />
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={submitChangeRequest} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: C.gold, color: C.sidebar, fontWeight: '800', cursor: 'pointer' }}>إرسال الطلب</button>
-              <button onClick={() => setChangeReqModal({ ...changeReqModal, show: false })} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: `1px solid ${C.border}`, background: 'none', color: C.gray, cursor: 'pointer' }}>إلغاء</button>
+              <UIButton onClick={submitChangeRequest} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: 'none', background: C.gold, color: C.sidebar, fontWeight: '800', cursor: 'pointer' }}>إرسال الطلب</UIButton>
+              <UIButton onClick={() => setChangeReqModal({ ...changeReqModal, show: false })} style={{ flex: 1, padding: '14px', borderRadius: '12px', border: `1px solid ${C.border}`, background: 'none', color: C.gray, cursor: 'pointer' }}>إلغاء</UIButton>
             </div>
           </div>
         </div>

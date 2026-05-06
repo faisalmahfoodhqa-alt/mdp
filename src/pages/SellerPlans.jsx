@@ -6,6 +6,7 @@ import {
   CheckCircleFill, StarFill, ArrowRight, ShieldCheck,
   BoxArrowRight, Shop
 } from 'react-bootstrap-icons';
+import { UIButton } from '../shared/components/ui';
 
 const colors = {
   primary: '#0a1a3a',
@@ -91,14 +92,14 @@ const SellerPlans = () => {
           }}>
             ← لوحة التحكم
           </Link>
-          <button onClick={logout} style={{
+          <UIButton onClick={logout} style={{
             background: `${colors.red}20`, color: '#ff6b6b',
             border: 'none', padding: '7px 14px', borderRadius: '8px',
             cursor: 'pointer', fontSize: '13px',
             flex: isMobile ? 1 : 'none'
           }}>
             خروج
-          </button>
+          </UIButton>
         </div>
       </div>
 
@@ -237,7 +238,7 @@ const SellerPlans = () => {
                     باقتك الحالية ✓
                   </div>
                 ) : (
-                  <button
+                  <UIButton
                     onClick={() => handleUpgrade(key)}
                     disabled={upgrading === key}
                     style={{
@@ -263,7 +264,7 @@ const SellerPlans = () => {
                     ) : (
                       <><StarFill size={14} /> اشترك الآن</>
                     )}
-                  </button>
+                  </UIButton>
                 )}
               </div>
             );

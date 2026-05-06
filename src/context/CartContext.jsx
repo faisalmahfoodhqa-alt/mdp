@@ -1,30 +1,88 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
-  const [cartItems, setCartItems] = useState(() => {
-    const savedCart = localStorage.getItem('cart');
-    return savedCart ? JSON.parse(savedCart) : [];
-  });
+  const { user } = useAuth();
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const getUserCartKey = (u) => (u?.id != null ? `cart_${u.id}` : null);
 
+  const safeParseCart = (raw) => {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const itemSignature = (item) =>
+    `${String(item?.id ?? item?.productId ?? item?._id)}|${JSON.stringify(item?.options || {})}`;
+
+  const mergeCartItems = (baseItems, incomingItems) => {
+    const map = new Map();
+    [...baseItems, ...incomingItems].forEach((item) => {
+      const sig = itemSignature(item);
+      const prev = map.get(sig);
+      if (!prev) {
+        map.set(sig, { ...item, quantity: Number(item?.quantity) > 0 ? Number(item.quantity) : 1 });
+        return;
+      }
+      map.set(sig, {
+        ...prev,
+        quantity: (Number(prev.quantity) || 0) + (Number(item?.quantity) || 0)
+      });
+    });
+    return Array.from(map.values());
+  };
+
+  // Load cart on init
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cartItems));
-  }, [cartItems]);
+    const loadCart = async () => {
+      const guestCart = safeParseCart(localStorage.getItem('cart'));
+
+      if (user) {
+        const userCartKey = getUserCartKey(user);
+        const userCart = safeParseCart(localStorage.getItem(userCartKey));
+
+        // One-time safe migration/merge from guest cart to logged-in user cart
+        // to avoid cart loss after login.
+        const merged = mergeCartItems(userCart, guestCart);
+        localStorage.setItem(userCartKey, JSON.stringify(merged));
+        if (guestCart.length > 0) localStorage.removeItem('cart');
+        setCartItems(merged);
+      } else {
+        setCartItems(guestCart);
+      }
+
+      setLoading(false);
+    };
+    loadCart();
+  }, [user]);
+
+  // Sync cart to storage/cloud
+  useEffect(() => {
+    if (loading) return;
+    
+    if (user) {
+      const userCartKey = getUserCartKey(user);
+      localStorage.setItem(userCartKey, JSON.stringify(cartItems));
+    } else {
+      localStorage.setItem('cart', JSON.stringify(cartItems));
+    }
+  }, [cartItems, user, loading]);
 
   const addToCart = (product, quantity = 1, selectedOptions = {}) => {
     setCartItems(prev => {
-      // ✅ توحيد بيانات المنتج
       const normalizedProduct = {
         ...product,
-        storeName: product.storeName || product.seller?.name || product.seller || 'متجر غير معروف',
-        sellerId: product.sellerId || product.seller?.id || null,
-        seller: product.seller || {
-          name: product.storeName || product.seller?.name,
-          id: product.sellerId
-        },
+        storeName: product.storeName || 'متجر غير معروف',
+        sellerId: product.sellerId || null,
         price: typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0
       };
       
@@ -33,57 +91,46 @@ export const CartProvider = ({ children }) => {
         JSON.stringify(item.options) === JSON.stringify(selectedOptions)
       );
       
-      let newCart;
       if (existingItem) {
-        newCart = prev.map(item => 
+        return prev.map(item => 
           item.id === normalizedProduct.id && JSON.stringify(item.options) === JSON.stringify(selectedOptions)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       } else {
-        newCart = [...prev, { ...normalizedProduct, quantity, options: selectedOptions }];
+        return [...prev, { ...normalizedProduct, quantity, options: selectedOptions }];
       }
-      
-      localStorage.setItem('cartLastUpdated', new Date().toISOString());
-      return newCart;
     });
   };
 
   const removeFromCart = (productId, options = {}) => {
-    setCartItems(prev => {
-      localStorage.setItem('cartLastUpdated', new Date().toISOString());
-      return prev.filter(item => !(item.id === productId && JSON.stringify(item.options) === JSON.stringify(options)));
-    });
+    setCartItems(prev => prev.filter(item => !(item.id === productId && JSON.stringify(item.options) === JSON.stringify(options))));
   };
 
   const updateQuantity = (productId, quantity, options = {}) => {
     if (quantity < 1) return;
-    setCartItems(prev => {
-      localStorage.setItem('cartLastUpdated', new Date().toISOString());
-      return prev.map(item => 
-        item.id === productId && JSON.stringify(item.options) === JSON.stringify(options)
-          ? { ...item, quantity }
-          : item
-      );
-    });
+    setCartItems(prev => prev.map(item => 
+      item.id === productId && JSON.stringify(item.options) === JSON.stringify(options)
+        ? { ...item, quantity }
+        : item
+    ));
   };
 
   const clearCart = () => {
     setCartItems([]);
-    localStorage.removeItem('cartLastUpdated');
   };
 
   const clearCartBySeller = (sellerName) => {
-    setCartItems(prev => prev.filter(item => (item.storeName || item.seller?.name || item.seller || 'متجر غير معروف') !== sellerName));
+    setCartItems((prev) =>
+      prev.filter((item) => {
+        const itemSeller = item.storeName || item.seller?.name || (typeof item.seller === 'string' ? item.seller : '');
+        return itemSeller !== sellerName;
+      })
+    );
   };
 
-  const getCartTotal = () => {
-    return cartItems.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
-  };
-
-  const getCartCount = () => {
-    return cartItems.reduce((count, item) => count + item.quantity, 0);
-  };
+  const getCartTotal = () => cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const getCartCount = () => cartItems.reduce((count, item) => count + item.quantity, 0);
 
   return (
     <CartContext.Provider value={{
@@ -94,7 +141,8 @@ export const CartProvider = ({ children }) => {
       clearCart,
       clearCartBySeller,
       getCartTotal,
-      getCartCount
+      getCartCount,
+      loading
     }}>
       {children}
     </CartContext.Provider>

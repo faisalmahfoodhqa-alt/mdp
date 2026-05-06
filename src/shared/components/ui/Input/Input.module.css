@@ -1,0 +1,16 @@
+.field {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--color-gold, #c88c23) 35%, transparent);
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-white, #ffffff);
+  color: var(--color-primary, #0a1a3a);
+  font-size: var(--font-size-sm, 14px);
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color var(--motion-fast, 150ms ease), box-shadow var(--motion-fast, 150ms ease);
+}
+
+.field:focus {
+  border-color: var(--color-gold, #c88c23);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-gold, #c88c23) 20%, transparent);
+}

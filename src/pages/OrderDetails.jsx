@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowRight, GeoAlt, CreditCard, BoxSeam, InfoCircle, XCircleFill, CheckCircleFill, Truck, ClockHistory, BagCheckFill } from 'react-bootstrap-icons';
 import { useAuth } from '../context/AuthContext';
+import { UIButton } from '../shared/components/ui';
 
 const OrderDetails = () => {
     const { orderId } = useParams();
@@ -51,13 +52,14 @@ const OrderDetails = () => {
 
     const statusTexts = {
         pending: { text: "طلبك قيد الانتظار", color: C.gold, bg: `${C.gold}15`, border: `${C.gold}30` },
+        pending_payment: { text: "بانتظار تأكيد الدفع", color: '#e67e22', bg: 'rgba(230,126,34,0.1)', border: 'rgba(230,126,34,0.3)' },
         processing: { text: "طلبك قيد التجهيز", color: 'white', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' },
-        shipped: { text: "طلبك في الطريق الآن", color: C.gold, bg: `${C.gold}10`, border: `${C.gold}30` },
+        shipping: { text: "طلبك في الطريق الآن", color: C.gold, bg: `${C.gold}10`, border: `${C.gold}30` },
         delivered: { text: "تم تسليم الطلب بنجاح", color: '#fff', bg: `${C.gold}44`, border: C.gold },
         cancelled: { text: "تم إلغاء الطلب", color: C.red, bg: `${C.red}10`, border: `${C.red}30` }
     };
     
-    const currStatus = statusTexts[order.status || 'pending'];
+    const currStatus = statusTexts[order.status] || statusTexts.pending;
     const sellersNameList = order.sellerNotifications?.map(n => n.vendorName).join('، ') || order.sellerName || 'متجر غير معروف';
 
     const handleConfirmCancel = () => {
@@ -90,9 +92,9 @@ const OrderDetails = () => {
         <div style={{ direction: 'rtl', minHeight: '100vh', background: C.primary, paddingBottom: '100px' }}>
             {/* Header */}
             <div style={{ background: '#162343', padding: '15px 20px', display: 'flex', alignItems: 'center', gap: '15px', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <button onClick={() => navigate('/orders')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', color: C.gold }}>
+                <UIButton onClick={() => navigate('/orders')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', color: C.gold }}>
                     <ArrowRight size={24} />
-                </button>
+                </UIButton>
                 <h2 style={{ margin: 0, fontSize: '18px', color: 'white', fontWeight: 'bold' }}>تفاصيل الطلب</h2>
             </div>
 
@@ -105,17 +107,17 @@ const OrderDetails = () => {
                         <div style={{ position: 'absolute', top: '25px', left: '10%', right: '10%', height: '2px', background: 'rgba(255,255,255,0.1)', zIndex: 1 }}></div>
                         <div style={{ 
                             position: 'absolute', top: '25px', left: '10%', 
-                            width: order.status === 'pending' ? '0%' : order.status === 'processing' ? '33%' : order.status === 'shipped' ? '66%' : order.status === 'delivered' ? '80%' : '0%', 
+                            width: order.status === 'pending' ? '0%' : order.status === 'processing' ? '33%' : order.status === 'shipping' ? '66%' : order.status === 'delivered' ? '80%' : '0%', 
                             height: '2px', background: C.gold, zIndex: 2, transition: '0.5s' 
                         }}></div>
 
                         {[
                             { id: 'pending', label: 'طلب جديد', icon: ClockHistory },
                             { id: 'processing', label: 'تجهيز', icon: BoxSeam },
-                            { id: 'shipped', label: 'توصيل', icon: Truck },
+                            { id: 'shipping', label: 'توصيل', icon: Truck },
                             { id: 'delivered', label: 'استلمت', icon: BagCheckFill }
                         ].map((step, idx) => {
-                            const isCompleted = ['pending', 'processing', 'shipped', 'delivered'].indexOf(order.status) >= idx;
+                            const isCompleted = ['pending', 'processing', 'shipping', 'delivered'].indexOf(order.status) >= idx;
                             const isCurrent = order.status === step.id;
                             const StepIcon = step.icon;
 
@@ -188,9 +190,12 @@ const OrderDetails = () => {
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                         {order.items?.map((item, idx) => (
+                            (() => {
+                                const resolvedId = item?.id ?? item?.productId ?? item?._id;
+                                return (
                             <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '15px', borderBottom: idx !== order.items.length - 1 ? `1px solid rgba(255,255,255,0.08)` : 'none', paddingBottom: idx !== order.items.length - 1 ? '20px' : 0 }}>
                                 <div style={{ display: 'flex', gap: '15px' }}>
-                                    <Link to={`/product/${item.id}`} style={{ flexShrink: 0 }}>
+                                    <Link to={resolvedId ? `/product/${resolvedId}` : '#'} style={{ flexShrink: 0 }}>
                                         <img 
                                             src={item.image || (item.images?.[0]?.url || item.images?.[0]) || 'https://via.placeholder.com/80'} 
                                             alt={item.name} 
@@ -198,7 +203,7 @@ const OrderDetails = () => {
                                         />
                                     </Link>
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                        <Link to={`/product/${item.id}`} style={{ textDecoration: 'none', color: 'white' }}>
+                                        <Link to={resolvedId ? `/product/${resolvedId}` : '#'} style={{ textDecoration: 'none', color: 'white' }}>
                                             <div style={{ fontSize: '15px', fontWeight: '900', color: 'white', marginBottom: '6px', lineHeight: '1.4' }}>{item.name}</div>
                                         </Link>
                                         
@@ -220,6 +225,8 @@ const OrderDetails = () => {
                                     </div>
                                 )}
                             </div>
+                                );
+                            })()
                         ))}
                     </div>
                 </div>
@@ -232,10 +239,14 @@ const OrderDetails = () => {
                     <div style={{ paddingBottom: '15px', marginBottom: '15px', borderBottom: `1px dashed rgba(255,255,255,0.1)` }}>
                         <span style={{ fontSize: '14px', color: C.gray }}>وسيلة الدفع: </span>
                         <strong style={{ fontSize: '14px', color: 'white' }}>
-                            {order.payment?.method === 'cash' ? 'نقد عند الاستلام' : `إلكتروني (${typeof order.payment?.wallet === 'object' ? order.payment.wallet.type : (order.payment?.wallet || '')})`}
+                            {order.payment?.method === 'cash'
+                              ? 'نقد عند الاستلام'
+                              : order.payment?.method === 'platform_wallet'
+                                 ? 'محفظتي (رصيد المنصة)'
+                                 : `إلكتروني (${typeof order.payment?.wallet === 'object' ? order.payment.wallet.type : (order.payment?.wallet || '')})`}
                         </strong>
                         {order.payment?.verificationCode && (
-                            <div style={{ fontSize: '12px', color: C.gray, marginTop: '6px' }}>رقم العملية: <span style={{fontWeight: 'bold', color: C.gold}}>{order.payment.verificationCode}</span></div>
+                            <div style={{ fontSize: '12px', color: C.gray, marginTop: '6px' }}>رقم مرجع العملية: <span style={{fontWeight: 'bold', color: C.gold}}>{order.payment.verificationCode}</span></div>
                         )}
                     </div>
 
@@ -248,6 +259,9 @@ const OrderDetails = () => {
                             <span>التوصيل:</span>
                             <span style={{ color: order.deliveryFee > 0 ? C.red : C.gold }}>{order.deliveryFee > 0 ? `+${order.deliveryFee.toLocaleString()} ريال` : 'خدمة مجانية'}</span>
                         </div>
+                        {order.deliveryPricingNote ? (
+                            <div style={{ fontSize: '12px', color: C.gray, lineHeight: 1.5 }}>{order.deliveryPricingNote}</div>
+                        ) : null}
                         {(order.discount || 0) > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#27ae60' }}>
                                 <span>الخصم ({order.appliedCoupon}):</span>
@@ -265,7 +279,7 @@ const OrderDetails = () => {
             {/* Actions */}
             <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#162343', padding: '18px', boxShadow: '0 -8px 25px rgba(0,0,0,0.3)', zIndex: 100, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-                    <button 
+                    <UIButton 
                         onClick={() => setShowCancelModal(true)}
                         disabled={order.status === 'cancelled' || order.status === 'delivered'}
                         style={{ 
@@ -277,7 +291,7 @@ const OrderDetails = () => {
                         }}
                     >
                         <XCircleFill /> {order.status === 'cancelled' ? 'الطلب ملغي' : (order.status === 'delivered' ? 'مكتمل - لا يمكن الإلغاء' : 'إلغاء الطلب')}
-                    </button>
+                    </UIButton>
                 </div>
             </div>
 
@@ -299,8 +313,8 @@ const OrderDetails = () => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '12px' }}>
-                            <button onClick={handleConfirmCancel} style={{ flex: 1, padding: '14px', background: C.red, color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>نعم، إلغاء</button>
-                            <button onClick={() => setShowCancelModal(false)} style={{ flex: 1, padding: '14px', background: 'transparent', color: 'white', border: `1px solid rgba(255,255,255,0.1)`, borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>تراجع</button>
+                            <UIButton onClick={handleConfirmCancel} style={{ flex: 1, padding: '14px', background: C.red, color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>نعم، إلغاء</UIButton>
+                            <UIButton onClick={() => setShowCancelModal(false)} style={{ flex: 1, padding: '14px', background: 'transparent', color: 'white', border: `1px solid rgba(255,255,255,0.1)`, borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>تراجع</UIButton>
                         </div>
                     </div>
                 </div>

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { UIButton } from '../shared/components/ui';
 import { Telephone, Lock, Eye, EyeSlash } from 'react-bootstrap-icons';
 
 const Login = () => {
@@ -186,18 +187,20 @@ const Login = () => {
                   color: colors.primary
                 }}
               />
-              <button
+              <UIButton
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 style={{
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: colors.gray
+                  color: colors.gray,
+                  padding: 0,
+                  minWidth: 'auto'
                 }}
               >
                 {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
-              </button>
+              </UIButton>
             </div>
           </div>
 
@@ -228,7 +231,7 @@ const Login = () => {
           )}
 
           {/* زر تسجيل الدخول */}
-          <button
+          <UIButton
             type="submit"
             disabled={loading}
             style={{
@@ -246,18 +249,18 @@ const Login = () => {
             }}
           >
             {loading ? (
-              <div style={{ 
-                display: 'inline-block', 
-                width: '20px', 
-                height: '20px', 
-                border: `3px solid ${colors.primary}40`, 
-                borderTopColor: colors.primary, 
-                borderRadius: '50%', 
+              <div style={{
+                display: 'inline-block',
+                width: '20px',
+                height: '20px',
+                border: `3px solid ${colors.primary}40`,
+                borderTopColor: colors.primary,
+                borderRadius: '50%',
                 animation: 'spinner 0.8s linear infinite',
                 verticalAlign: 'middle'
               }} />
             ) : 'تسجيل الدخول'}
-          </button>
+          </UIButton>
         </form>
 
         {/* رابط التسجيل */}

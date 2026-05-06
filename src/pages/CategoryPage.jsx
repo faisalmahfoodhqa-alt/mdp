@@ -1,12 +1,13 @@
 // src/pages/CategoryPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Grid3x3Gap, List as ListIcon, Filter, ArrowRight } from 'react-bootstrap-icons';
+import { Grid3x3Gap, List as ListIcon, Filter, ArrowRight, Search } from 'react-bootstrap-icons';
 import { getProductsByCategory } from '../data/products';
 import { useAuth } from '../context/AuthContext';
 import ProductCard from '../components/products/ProductCard';
 import ProductFilters from '../components/products/ProductFilters';
 import { CATEGORY_MAP } from '../components/dashboard/seller/constants';
+import { UIButton } from '../shared/components/ui';
 
 const CategoryPage = () => {
   const { categoryName } = useParams();
@@ -18,41 +19,44 @@ const CategoryPage = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [filters, setFilters] = useState({});
   const [selectedSubCategory, setSelectedSubCategory] = useState('الكل');
 
-  // استخراج الأقسام الفرعية ديناميكياً مع حمايتها من الأسماء العشوائية
+  // جلب الأقسام الفرعية الثابتة من خريطة التصنيفات
   const subCategories = React.useMemo(() => {
-    if (!products.length) return ['الكل'];
+    const displayCategory = categoryName.replace(/-/g, ' ');
+    let items = [];
     
-    // استخراج جميع التصنيفات الصحيحة من الخريطة المركزية للمقارنة
-    const getValidLabels = (obj) => {
-      let labels = [];
-      if (Array.isArray(obj)) {
-        labels = [...obj];
-      } else if (typeof obj === 'object' && obj !== null) {
-        Object.keys(obj).forEach(key => {
-          labels.push(key);
-          labels = [...labels, ...getValidLabels(obj[key])];
-        });
+    const findItems = (obj, currentKey = null) => {
+      if (currentKey === displayCategory) {
+        if (Array.isArray(obj)) {
+          items = obj;
+        } else if (typeof obj === 'object' && obj !== null) {
+          items = Object.keys(obj);
+        }
+        return true;
       }
-      return labels;
+      if (Array.isArray(obj)) return false;
+      for (const key in obj) {
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+          if (findItems(obj[key], key)) return true;
+        }
+      }
+      return false;
     };
-    const allValidLabels = getValidLabels(CATEGORY_MAP);
-
-    const tags = new Set();
-    products.forEach(p => {
-      // نستخدم النوع التفصيلي إذا وجد، وإلا نستخدم التصنيف الفرعي
-      const catLabel = p.subItem || p.category;
-      
-      // لا نضيف الوسم إلا إذا كان موجوداً في قائمة التصنيفات الرسمية
-      if (catLabel && allValidLabels.some(l => l.trim() === catLabel.trim())) {
-        tags.add(catLabel);
-      }
-    });
-    return ['الكل', ...Array.from(tags)];
-  }, [products]);
+    
+    if (CATEGORY_MAP[displayCategory]) {
+       const val = CATEGORY_MAP[displayCategory];
+       if (Array.isArray(val)) items = val;
+       else items = Object.keys(val);
+    } else {
+       findItems(CATEGORY_MAP);
+    }
+    
+    return items.length > 0 ? ['الكل', ...items] : ['الكل'];
+  }, [categoryName]);
 
   // التحقق من حجم الشاشة
   useEffect(() => {
@@ -98,6 +102,15 @@ const CategoryPage = () => {
   useEffect(() => {
     let filtered = [...products];
 
+    // فلتر البحث بالاسم
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(p => 
+        (p.name && p.name.toLowerCase().includes(term)) ||
+        (p.description && p.description.toLowerCase().includes(term))
+      );
+    }
+
     // فلتر السعر
     if (filters.priceRange) {
       filtered = filtered.filter(p => 
@@ -124,6 +137,7 @@ const CategoryPage = () => {
     if (filters.reset) {
       setFilters({});
       setSelectedSubCategory('الكل');
+      setSearchTerm('');
       filtered = [...products];
     }
 
@@ -143,7 +157,7 @@ const CategoryPage = () => {
     }
 
     setFilteredProducts(filtered);
-  }, [products, sortBy, filters, selectedSubCategory]);
+  }, [products, sortBy, filters, selectedSubCategory, searchTerm]);
 
   
   // عرض اسم القسم بشكل جميل (إزالة الشرطات)
@@ -187,171 +201,190 @@ const CategoryPage = () => {
         />
 
         {/* قسم المنتجات */}
-        <div>
-          {/* عنوان الصفحة */}
-          <div style={{ 
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            background: `linear-gradient(135deg, ${colors.primary}, ${colors.primary}dd)`, 
-            color: colors.white, 
-            padding: '8px 15px', 
-            borderRadius: '12px', 
-            marginBottom: isMobile ? '10px' : '15px' 
-          }}>
-            <div style={{ overflow: 'hidden' }}>
-              <h1 style={{ 
-                fontSize: isMobile ? '18px' : '22px', 
-                marginBottom: '0', 
-                color: colors.gold, 
-                whiteSpace: 'nowrap', 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis' 
-              }}>
-                {displayCategoryName}
-              </h1>
-            </div>
-            <button 
-              onClick={() => navigate(-1)}
-              style={{
-                background: 'transparent',
-                border: `1px solid ${colors.gold}`,
-                color: colors.gold,
-                width: isMobile ? '30px' : '36px',
-                height: isMobile ? '30px' : '36px',
-                borderRadius: '50%',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.3s',
-                flexShrink: 0
-              }}
-            >
-              <ArrowRight size={isMobile ? 14 : 16} />
-            </button>
-          </div>
-
-          {/* شريط البحث والترتيب */}
+        <div style={{ minWidth: 0 }}>
+          {/* شريط العنوان والبحث */}
           <div style={{ 
             background: colors.white, 
             borderRadius: '12px', 
             padding: isMobile ? '12px' : '15px', 
-            marginBottom: isMobile ? '15px' : '20px' 
+            marginBottom: '15px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.02)'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: isMobile ? 'column' : 'row', 
-              gap: isMobile ? '10px' : '15px', 
-              alignItems: isMobile ? 'stretch' : 'center' 
-            }}>
-
-
-              {/* أزرار التحكم */}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                {isMobile && (
-                  <button 
-                    onClick={() => setShowFilters(!showFilters)} 
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '5px', 
-                      padding: '8px 15px', 
-                      background: showFilters ? colors.gold : 'transparent', 
-                      border: `1px solid ${colors.gold}`, 
-                      borderRadius: '8px', 
-                      color: showFilters ? colors.primary : colors.gold, 
-                      cursor: 'pointer', 
-                      fontSize: '13px' 
-                    }}
-                  >
-                    <Filter size={14} /> فلتر
-                  </button>
-                )}
-                <select 
-                  value={sortBy} 
-                  onChange={(e) => setSortBy(e.target.value)} 
-                  style={{ 
-                    padding: isMobile ? '6px 10px' : '8px 12px', 
-                    borderRadius: '5px', 
-                    border: `1px solid ${colors.gold}`, 
-                    background: colors.white, 
-                    color: colors.primary, 
-                    cursor: 'pointer', 
-                    fontSize: isMobile ? '12px' : '13px' 
-                  }}
-                >
-                  <option value="default">ترتيب</option>
-                  <option value="price-asc">السعر: الأقل أولاً</option>
-                  <option value="price-desc">السعر: الأعلى أولاً</option>
-                  <option value="rating">التقييم</option>
-                </select>
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  <button 
-                    onClick={() => setViewMode('grid')} 
-                    style={{ 
-                      padding: isMobile ? '6px' : '8px', 
-                      background: viewMode === 'grid' ? colors.gold : 'transparent', 
-                      border: `1px solid ${colors.gold}`, 
-                      borderRadius: '5px', 
-                      color: viewMode === 'grid' ? colors.primary : colors.gold, 
-                      cursor: 'pointer' 
-                    }}
-                  >
-                    <Grid3x3Gap size={isMobile ? 14 : 16} />
-                  </button>
-                  <button 
-                    onClick={() => setViewMode('list')} 
-                    style={{ 
-                      padding: isMobile ? '6px' : '8px', 
-                      background: viewMode === 'list' ? colors.gold : 'transparent', 
-                      border: `1px solid ${colors.gold}`, 
-                      borderRadius: '5px', 
-                      color: viewMode === 'list' ? colors.primary : colors.gold, 
-                      cursor: 'pointer' 
-                    }}
-                  >
-                    <ListIcon size={isMobile ? 14 : 16} />
-                  </button>
-                </div>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', position: 'relative', marginBottom: '15px' }}>
+              <UIButton 
+                onClick={() => navigate(-1)}
+                style={{
+                  background: colors.lightGray,
+                  border: 'none',
+                  color: colors.primary,
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'absolute',
+                  right: 0,
+                  zIndex: 2
+                }}
+              >
+                <ArrowRight size={18} />
+              </UIButton>
+              <h1 style={{ 
+                flex: 1,
+                textAlign: 'center',
+                fontSize: isMobile ? '18px' : '22px', 
+                margin: '0', 
+                color: colors.primary, 
+                fontWeight: 'bold',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                padding: '0 45px'
+              }}>
+                {displayCategoryName}
+              </h1>
             </div>
 
-            {/* شريط الأقسام الفرعية */}
+            <div style={{ position: 'relative' }}>
+              <input 
+                type="text" 
+                placeholder={`ابحث في ${displayCategoryName}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 15px',
+                  paddingRight: '35px',
+                  borderRadius: '50px',
+                  border: `1px solid ${colors.gold}50`,
+                  background: colors.lightGray,
+                  outline: 'none',
+                  fontSize: '14px',
+                  color: colors.primary
+                }}
+              />
+              <Search style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.gray }} />
+            </div>
+
+            {/* الأقسام الفرعية (سطر واحد قابل للسحب مثل المتاجر) */}
             {subCategories.length > 1 && (
-              <div className="hide-scrollbar" style={{
-                display: 'flex',
-                gap: '10px',
-                overflowX: 'auto',
-                paddingTop: '15px',
-                marginTop: '15px',
-                borderTop: `1px solid ${colors.lightGray}`,
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
-              }}>
-                {subCategories.map((sub, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedSubCategory(sub)}
-                    style={{
-                      padding: '6px 16px',
-                      background: selectedSubCategory === sub ? colors.gold : colors.lightGray,
-                      color: selectedSubCategory === sub ? colors.primary : colors.primary,
-                      border: 'none',
-                      borderRadius: '20px',
-                      fontSize: '13px',
-                      fontWeight: selectedSubCategory === sub ? 'bold' : 'normal',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    {sub}
-                  </button>
-                ))}
+              <div style={{ marginTop: '15px', maxWidth: '100%', overflow: 'hidden' }}>
+                <div className="hide-scrollbar" style={{ 
+                  display: 'flex', 
+                  gap: '8px', 
+                  overflowX: 'auto', 
+                  padding: '2px 5px 10px', 
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}>
+                  {subCategories.map((sub, index) => (
+                    <UIButton
+                      key={index}
+                      onClick={() => setSelectedSubCategory(sub)}
+                      style={{
+                        padding: '6px 20px',
+                        borderRadius: '50px',
+                        border: `1.5px solid ${selectedSubCategory === sub ? colors.gold : colors.gold}40`,
+                        background: selectedSubCategory === sub ? colors.gold : colors.white,
+                        color: selectedSubCategory === sub ? colors.primary : colors.primary,
+                        fontSize: '13px',
+                        fontWeight: selectedSubCategory === sub ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s ease',
+                        boxShadow: selectedSubCategory === sub ? '0 4px 10px rgba(200, 140, 35, 0.2)' : 'none'
+                      }}
+                    >
+                      {sub}
+                    </UIButton>
+                  ))}
+                </div>
+                <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
               </div>
             )}
-            <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+          </div>
+
+          {/* شريط الترتيب وعرض الشبكة/القائمة */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: colors.white, 
+            borderRadius: '12px', 
+            padding: isMobile ? '10px' : '15px', 
+            marginBottom: '20px' 
+          }}>
+            {isMobile && (
+              <UIButton 
+                onClick={() => setShowFilters(!showFilters)} 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '5px', 
+                  padding: '8px 15px', 
+                  background: showFilters ? colors.gold : 'transparent', 
+                  border: `1px solid ${colors.gold}`, 
+                  borderRadius: '8px', 
+                  color: showFilters ? colors.primary : colors.gold, 
+                  cursor: 'pointer', 
+                  fontSize: '13px' 
+                }}
+              >
+                <Filter size={14} /> فلتر
+              </UIButton>
+            )}
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: isMobile ? 'auto' : '0' }}>
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)} 
+                style={{ 
+                  padding: isMobile ? '6px 10px' : '8px 12px', 
+                  borderRadius: '8px', 
+                  border: `1px solid ${colors.gold}`, 
+                  background: colors.white, 
+                  color: colors.primary, 
+                  cursor: 'pointer', 
+                  fontSize: isMobile ? '12px' : '13px' 
+                }}
+              >
+                <option value="default">ترتيب</option>
+                <option value="price-asc">السعر: الأقل أولاً</option>
+                <option value="price-desc">السعر: الأعلى أولاً</option>
+                <option value="rating">التقييم</option>
+              </select>
+              
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <UIButton 
+                  onClick={() => setViewMode('grid')} 
+                  style={{ 
+                    padding: isMobile ? '6px' : '8px', 
+                    background: viewMode === 'grid' ? colors.gold : 'transparent', 
+                    border: `1px solid ${colors.gold}`, 
+                    borderRadius: '8px', 
+                    color: viewMode === 'grid' ? colors.primary : colors.gold, 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  <Grid3x3Gap size={isMobile ? 14 : 16} />
+                </UIButton>
+                <UIButton 
+                  onClick={() => setViewMode('list')} 
+                  style={{ 
+                    padding: isMobile ? '6px' : '8px', 
+                    background: viewMode === 'list' ? colors.gold : 'transparent', 
+                    border: `1px solid ${colors.gold}`, 
+                    borderRadius: '8px', 
+                    color: viewMode === 'list' ? colors.primary : colors.gold, 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  <ListIcon size={isMobile ? 14 : 16} />
+                </UIButton>
+              </div>
+            </div>
           </div>
 
           {/* عرض المنتجات */}
@@ -363,7 +396,7 @@ const CategoryPage = () => {
               borderRadius: '12px' 
             }}>
               <h3 style={{ fontSize: isMobile ? '18px' : '20px' }}>لا توجد منتجات</h3>
-              <button 
+              <UIButton 
                 onClick={() => setFilters({ reset: true })} 
                 style={{ 
                   marginTop: '20px', 
@@ -376,13 +409,13 @@ const CategoryPage = () => {
                 }}
               >
                 إعادة تعيين الفلاتر
-              </button>
+              </UIButton>
             </div>
           ) : (
             <div style={{ 
               display: viewMode === 'grid' ? 'grid' : 'block', 
               gridTemplateColumns: viewMode === 'grid' 
-                ? (isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))') 
+                ? (isMobile ? 'repeat(auto-fill, minmax(140px, 1fr))' : 'repeat(auto-fill, minmax(220px, 1fr))') 
                 : 'none', 
               gap: isMobile ? '10px' : '20px' 
             }}>

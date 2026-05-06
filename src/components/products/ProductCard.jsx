@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Star, Truck, Share, Cart2, Heart, HeartFill, Whatsapp } from 'react-bootstrap-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { UIButton } from '../../shared/components/ui';
 
 const ProductCard = ({ product, viewMode, isMobile }) => {
   const colors = {
@@ -44,11 +45,23 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
   const sellerName = typeof product.seller === 'string' 
     ? product.seller 
     : product.seller?.name || 'متجر موثوق';
+  const resolvedId = product?.id ?? product?.productId ?? product?._id;
+
+  // فحص حالة إجازة البائع
+  const isSellerOnVacation = React.useMemo(() => {
+    try {
+      const allUsers = JSON.parse(localStorage.getItem('all_users') || '[]');
+      const sellerUser = allUsers.find(u => u.id === product.sellerId || u.storeName === sellerName);
+      return sellerUser?.isVacationMode || false;
+    } catch { return false; }
+  }, [product.sellerId, sellerName]);
 
   const isWhatsAppFlow = product.mainCategory === 'المركبات' || product.mainCategory === 'العقارات' || product.categoryTitle?.includes('مركبات') || product.categoryTitle?.includes('عقارات') || product.categoryTitle?.includes('سيارات');
 
+  if (!resolvedId) return null;
+
   return (
-    <Link to={`/product/${product.id}`} className="product-card-container" style={{ textDecoration: 'none', display: 'block' }}>
+    <Link to={`/product/${resolvedId}`} className="product-card-container" style={{ textDecoration: 'none', display: 'block' }}>
       <div style={{
         background: colors.white,
         borderRadius: '10px',
@@ -105,7 +118,7 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
           {/* Overlay for Desktop Hover */}
           {!isMobile && (
             <div className="product-card-overlay">
-              <button
+              <UIButton
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -115,13 +128,17 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
                 title="أضف للمفضلة"
               >
                 {isInWishlist(product.id) ? <HeartFill size={20} /> : <Heart size={20} />}
-              </button>
+              </UIButton>
               
               {!isWhatsAppFlow && (
-                <button
+                <UIButton
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (isSellerOnVacation) {
+                      showSuccessToast('المتجر مغلق مؤقتاً (وضع الإجازة)');
+                      return;
+                    }
                     addToCart(product, 1);
                     showSuccessToast('تمت الإضافة إلى السلة بنجاح!');
                   }}
@@ -129,14 +146,14 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
                   title="أضف للسلة"
                 >
                   <Cart2 size={20} />
-                </button>
+                </UIButton>
               )}
 
-              <button
+              <UIButton
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  const url = encodeURIComponent(`${window.location.origin}/product/${product.id}`);
+                  const url = encodeURIComponent(`${window.location.origin}/product/${resolvedId}`);
                   window.open(`https://wa.me/967770000000?text=${encodeURIComponent(`أنا مهتم بهذا الإعلان: ${product.name}\n`)}${url}`, '_blank');
                 }}
                 className="hover-icon-btn"
@@ -144,7 +161,7 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
                 title="تواصل عبر واتساب"
               >
                 <Whatsapp size={20} />
-              </button>
+              </UIButton>
             </div>
           )}
 
@@ -156,10 +173,14 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
                right: '5px',
                zIndex: 5
              }}>
-               <button
+               <UIButton
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
+                    if (isSellerOnVacation) {
+                      showSuccessToast('المتجر مغلق مؤقتاً (وضع الإجازة)');
+                      return;
+                    }
                     addToCart(product, 1);
                     showSuccessToast('تمت الإضافة إلى السلة!');
                   }}
@@ -171,7 +192,7 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
                   }}
                 >
                   <Cart2 size={16} />
-                </button>
+                </UIButton>
              </div>
           )}
         </div>
@@ -236,11 +257,11 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
             </p>
           )}
 
-          <button 
+          <UIButton 
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              navigate(`/product/${product.id}`);
+              navigate(`/product/${resolvedId}`);
             }}
             style={{
               background: colors.gold,
@@ -255,7 +276,7 @@ const ProductCard = ({ product, viewMode, isMobile }) => {
               marginTop: viewMode === 'grid' && isMobile ? '3px' : '0'
             }}>
             {isWhatsAppFlow ? 'التفاصيل' : 'تسوق الآن'}
-          </button>
+          </UIButton>
         </div>
       </div>
     </Link>

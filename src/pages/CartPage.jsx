@@ -3,11 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Trash, Plus, Dash, BagDash, ArrowRight } from 'react-bootstrap-icons';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { UIButton } from '../shared/components/ui';
 
 const CartPage = () => {
   const { cartItems, updateQuantity, removeFromCart, getCartCount } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const C = {
     primary: '#0a1a3a',
@@ -50,17 +58,17 @@ const CartPage = () => {
   }
 
   return (
-    <div style={{ direction: 'rtl', minHeight: '100vh', background: C.bg, padding: '40px 15px 120px 15px' }}>
+    <div style={{ direction: 'rtl', minHeight: '100vh', background: C.bg, padding: isMobile ? '20px 10px 100px 10px' : '40px 15px 120px 15px' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
         
-        <header style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <header style={{ marginBottom: isMobile ? '20px' : '32px', display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: '12px', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           <div>
-            <h1 style={{ fontSize: '28px', color: C.primary, fontWeight: '900', margin: 0 }}>سلة المشتريات</h1>
+            <h1 style={{ fontSize: isMobile ? '22px' : '28px', color: C.primary, fontWeight: '900', margin: 0 }}>سلة المشتريات</h1>
             <p style={{ color: C.gray, fontSize: '14px', marginTop: '4px' }}>لديك {getCartCount()} منتجات في سلتك</p>
           </div>
-          <button onClick={() => navigate(-1)} style={{ background: 'white', border: `1px solid ${C.border}`, padding: '10px 15px', borderRadius: '12px', color: C.primary, fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <UIButton onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))} style={{ background: 'white', border: `1px solid ${C.border}`, padding: '10px 15px', borderRadius: '12px', color: C.primary, fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
            <ArrowRight size={16}/> العودة للتسوق
-          </button>
+          </UIButton>
         </header>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -69,8 +77,8 @@ const CartPage = () => {
             const vendorTotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
             
             return (
-              <section key={vendor} style={{ background: 'white', borderRadius: '24px', padding: '32px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', border: `1px solid ${C.border}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: `1px solid ${C.border}` }}>
+              <section key={vendor} style={{ background: 'white', borderRadius: '24px', padding: isMobile ? '16px' : '32px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', border: `1px solid ${C.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: `1px solid ${C.border}`, gap: '10px' }}>
                   <Link 
                     to={`/store/${vendor.replace(/\s+/g, '-')}`}
                     style={{ display: 'flex', alignItems: 'center', gap: '15px', textDecoration: 'none', cursor: 'pointer' }}
@@ -84,19 +92,19 @@ const CartPage = () => {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   {items.map((item, idx) => (
-                    <div key={`${item.id}-${idx}`} style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                      <Link to={`/product/${item.id}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
-                        <img src={item.image || (item.images && item.images[0])} alt={item.name} style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '20px', background: C.bg }} />
+                    <div key={`${item.id}-${idx}`} style={{ display: 'flex', gap: isMobile ? '12px' : '20px', alignItems: isMobile ? 'flex-start' : 'center' }}>
+                      <Link to={`/product/${item?.id ?? item?.productId ?? item?._id}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
+                        <img src={item.image || (item.images && item.images[0])} alt={item.name} style={{ width: isMobile ? '78px' : '100px', height: isMobile ? '78px' : '100px', objectFit: 'cover', borderRadius: '20px', background: C.bg }} />
                       </Link>
                       
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <Link to={`/product/${item.id}`} style={{ textDecoration: 'none' }}>
-                            <h3 style={{ fontSize: '16px', fontWeight: '700', color: C.text, margin: 0 }}>{item.name}</h3>
+                          <Link to={`/product/${item?.id ?? item?.productId ?? item?._id}`} style={{ textDecoration: 'none', minWidth: 0, flex: 1 }}>
+                            <h3 style={{ fontSize: isMobile ? '14px' : '16px', fontWeight: '700', color: C.text, margin: 0, whiteSpace: isMobile ? 'nowrap' : 'normal', overflow: isMobile ? 'hidden' : 'visible', textOverflow: isMobile ? 'ellipsis' : 'clip' }}>{item.name}</h3>
                           </Link>
-                          <button onClick={() => removeFromCart(item.id, item.options)} style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', opacity: 0.6 }}>
+                          <UIButton type="button" onClick={() => removeFromCart(item.id, item.options)} style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', opacity: 0.6, padding: 0, minWidth: 'auto' }}>
                             <Trash size={20} />
-                          </button>
+                          </UIButton>
                         </div>
                         
                         <div style={{ display: 'flex', gap: '12px', marginBottom: '15px' }}>
@@ -104,13 +112,13 @@ const CartPage = () => {
                           {item.options?.color && <span style={{ fontSize: '12px', color: C.gray }}>لون: {item.options.color}</span>}
                         </div>
                         
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '18px', fontWeight: '900', color: C.gold }}>{formatPrice(item.price)}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: isMobile ? '15px' : '18px', fontWeight: '900', color: C.gold }}>{formatPrice(item.price)}</span>
                           
                           <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: C.bg, padding: '8px 18px', borderRadius: '15px' }}>
-                            <button onClick={() => updateQuantity(item.id, item.quantity - 1, item.options)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary }} disabled={item.quantity <= 1}><Dash size={20}/></button>
+                            <UIButton type="button" onClick={() => updateQuantity(item.id, item.quantity - 1, item.options)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, padding: 0, minWidth: 'auto' }} disabled={item.quantity <= 1}><Dash size={20}/></UIButton>
                             <span style={{ fontWeight: '800', fontSize: '16px', minWidth: '24px', textAlign: 'center' }}>{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, item.quantity + 1, item.options)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary }}><Plus size={20}/></button>
+                            <UIButton type="button" onClick={() => updateQuantity(item.id, item.quantity + 1, item.options)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.primary, padding: 0, minWidth: 'auto' }}><Plus size={20}/></UIButton>
                           </div>
                         </div>
                       </div>
@@ -124,12 +132,12 @@ const CartPage = () => {
                      <div style={{ fontSize: '24px', fontWeight: '900', color: C.primary }}>{formatPrice(vendorTotal)}</div>
                    </div>
                    
-                   <button 
+                  <UIButton 
                     onClick={() => navigate(isAuthenticated ? `/checkout?seller=${encodeURIComponent(vendor)}` : `/login?redirect=/checkout?seller=${encodeURIComponent(vendor)}`)}
-                    style={{ padding: '16px 32px', background: C.primary, color: 'white', border: 'none', borderRadius: '18px', fontWeight: '900', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 8px 20px rgba(10, 26, 58, 0.15)' }}
+                    style={{ width: isMobile ? '100%' : 'auto', padding: isMobile ? '14px 18px' : '16px 32px', background: C.primary, color: 'white', border: 'none', borderRadius: '18px', fontWeight: '900', fontSize: '15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: '0 8px 20px rgba(10, 26, 58, 0.15)' }}
                   >
                     إتمام الطلب من {vendor} <ArrowRight size={18}/>
-                  </button>
+                  </UIButton>
                 </div>
               </section>
             );

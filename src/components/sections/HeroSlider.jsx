@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'react-bootstrap-icons';
+import { UIButton } from '../../shared/components/ui';
 
 const HeroSlider = () => {
-  const slides = [
+  const staticSlides = [
     {
       id: 1,
       image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format',
@@ -51,6 +52,28 @@ const HeroSlider = () => {
     }
   ];
 
+  // جلب إعلانات السلايدر المدفوعة من المنتجات
+  const adSlides = React.useMemo(() => {
+    try {
+      const products = JSON.parse(localStorage.getItem('all_products') || '[]');
+      const now = new Date();
+      return products
+        .filter(p => p.isSliderAd && p.sliderAdExpiry && new Date(p.sliderAdExpiry) > now)
+        .map((p, i) => ({
+          id: `ad-${p.id}`,
+          image: p.images?.[0]?.url || p.images?.[0] || p.image || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&auto=format',
+          imageMobile: p.images?.[0]?.url || p.images?.[0] || p.image || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format',
+          title: p.name,
+          subtitle: `${p.storeName || 'متجر'} — ${(p.price || 0).toLocaleString()} ريال`,
+          buttonText: 'اطلب الآن',
+          buttonLink: `/product/${p.id}`,
+          isAd: true
+        }));
+    } catch { return []; }
+  }, []);
+
+  const slides = [...adSlides, ...staticSlides];
+
   const colors = {
     gold: '#c88c23',
     goldLight: '#e5a847',
@@ -68,7 +91,7 @@ const HeroSlider = () => {
   const START_INDEX = Math.floor(EXTENDED_SETS / 2) * slides.length + 2; 
 
   const [activeCardIndex, setActiveCardIndex] = useState(START_INDEX);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const scrollRef = React.useRef(null);
 
   // التحقق من حجم الشاشة
@@ -187,7 +210,8 @@ const HeroSlider = () => {
         padding: isMobile ? '15px 0' : '20px 0',
         direction: 'rtl',
         boxSizing: 'border-box',
-        background: 'transparent'
+        background: 'transparent',
+        minHeight: isMobile ? '165px' : '290px'
       }}
     >
       <style>{`
@@ -214,7 +238,7 @@ const HeroSlider = () => {
       {/* Navigation Arrows */}
       {!isMobile && (
         <>
-          <button
+          <UIButton
             onClick={prevSlide}
             className="nav-btn"
             style={{
@@ -237,8 +261,8 @@ const HeroSlider = () => {
             }}
           >
             <ChevronRight size={24} />
-          </button>
-          <button
+          </UIButton>
+          <UIButton
             onClick={nextSlide}
             className="nav-btn"
             style={{
@@ -261,7 +285,7 @@ const HeroSlider = () => {
             }}
           >
             <ChevronLeft size={24} />
-          </button>
+          </UIButton>
         </>
       )}
 

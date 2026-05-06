@@ -1,7 +1,8 @@
 // src/api/client.js
 import axios from 'axios';
+import { resolveApiBaseUrl } from '../config/backend';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = resolveApiBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -28,9 +29,11 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const path = window.location.pathname || '';
+      const publicAuth = /^\/(login|register)(\/|$)/.test(path);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (!publicAuth) window.location.href = '/login';
     }
     return Promise.reject(error);
   }

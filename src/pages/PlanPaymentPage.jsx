@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CreditCard, Wallet2, CheckCircleFill, ArrowRight, ShieldCheck, Whatsapp } from 'react-bootstrap-icons';
+import { UIButton } from '../shared/components/ui';
+import { useBackend } from '../config/backend';
+import { backendApi } from '../api/backendApi';
 
 const C = {
   primary: '#0a1a3a',
@@ -57,54 +60,70 @@ const PlanPaymentPage = () => {
     return <div style={{ textAlign: 'center', padding: '100px' }}>الباقة المختارة غير صالحة.</div>;
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!paymentMethod || !transactionId) {
-      alert('يرجى اختيار وسيلة الدفع وإدخال رقم العملية.');
+      alert('يرجى اختيار وسيلة الدفع وإدخال رقم مرجع العملية.');
+      return;
+    }
+    if (!receiptImage) {
+      alert('يرجى رفع صورة إيصال التحويل للتحقق.');
       return;
     }
 
     setLoading(true);
-    
-    // محاكاة إرسال الطلب وحفظه في localStorage
-    setTimeout(() => {
-      const requests = JSON.parse(localStorage.getItem('planUpgradeRequests') || '[]');
-      const newRequest = {
-        id: Date.now(),
-        sellerId: user.id,
-        storeName: user.storeName,
-        planName: plan.name,
-        planKey: planKey,
-        price: plan.basePrice || 0,
-        paymentMethod,
-        transactionId,
-        receiptImage,
-        status: 'pending',
-        date: new Date().toISOString()
-      };
-      
-      requests.push(newRequest);
-      localStorage.setItem('planUpgradeRequests', JSON.stringify(requests));
-      
-      // إضافة إشعار للأدمن
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const adminIndex = users.findIndex(u => u.role === 'admin');
-      if (adminIndex !== -1) {
-        if (!users[adminIndex].notifications) users[adminIndex].notifications = [];
-        users[adminIndex].notifications.unshift({
-          id: Date.now() + 1,
-          title: '💰 طلب ترقية باقة جديد',
-          message: `قدم البائع "${user.storeName}" طلب ترقية لباقة ${plan.name} عبر ${paymentMethod}.`,
-          type: 'warning',
-          date: new Date().toISOString(),
-          read: false
-        });
-        localStorage.setItem('users', JSON.stringify(users));
+
+    const newRequest = {
+      id: Date.now(),
+      sellerId: user.id,
+      storeName: user.storeName,
+      planName: plan.name,
+      planKey: planKey,
+      price: plan.basePrice || 0,
+      paymentMethod,
+      transactionId,
+      receiptImage,
+      status: 'pending',
+      date: new Date().toISOString()
+    };
+
+    try {
+      if (useBackend) {
+        await backendApi.sellerPlanRequest(newRequest);
       }
 
-      setLoading(false);
+      const requests = JSON.parse(localStorage.getItem('planUpgradeRequests') || '[]');
+      requests.push(newRequest);
+      localStorage.setItem('planUpgradeRequests', JSON.stringify(requests));
+
+      if (!useBackend) {
+        const allUsersPrimary = JSON.parse(localStorage.getItem('all_users') || '[]');
+        const users =
+          Array.isArray(allUsersPrimary) && allUsersPrimary.length > 0
+            ? allUsersPrimary
+            : JSON.parse(localStorage.getItem('users') || '[]');
+        const adminIndex = users.findIndex((u) => u.role === 'admin');
+        if (adminIndex !== -1) {
+          if (!users[adminIndex].notifications) users[adminIndex].notifications = [];
+          users[adminIndex].notifications.unshift({
+            id: Date.now() + 1,
+            title: '💰 طلب ترقية باقة جديد',
+            message: `قدم البائع "${user.storeName}" طلب ترقية لباقة ${plan.name} عبر ${paymentMethod}.`,
+            type: 'warning',
+            date: new Date().toISOString(),
+            read: false
+          });
+          localStorage.setItem('all_users', JSON.stringify(users));
+          localStorage.setItem('users', JSON.stringify(users));
+        }
+      }
+
       setSuccess(true);
-    }, 1500);
+    } catch (err) {
+      alert(err.message || 'تعذر إرسال الطلب');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {
@@ -119,8 +138,8 @@ const PlanPaymentPage = () => {
             تم استلام تفاصيل عملية الدفع الخاصة بك لترقية الحساب إلى الباقة <strong>{plan.name}</strong>. يرجى الانتظار حتى يتم مراجعة العملية من قبل الإدارة وتفعيل الحساب (عادة ما يستغرق 10-30 دقيقة).
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <button onClick={() => navigate('/seller/dashboard')} style={{ width: '100%', padding: '15px', background: C.primary, color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer' }}>العودة للوحة التحكم</button>
-            <a href={`https://wa.me/967776981756?text=أهلاً الإدارة، لقد قمت دفع رسوم اشتراك باقة ${plan.name} لمتجري: ${user.storeName}. رقم العملية: ${transactionId}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', width: '100%', padding: '15px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '15px', fontWeight: 'bold' }}>
+            <UIButton onClick={() => navigate('/seller/dashboard')} style={{ width: '100%', padding: '15px', background: C.primary, color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer' }}>العودة للوحة التحكم</UIButton>
+            <a href={`https://wa.me/967776981756?text=أهلاً الإدارة، لقد قمت دفع رسوم اشتراك باقة ${plan.name} لمتجري: ${user.storeName}. رقم مرجع العملية: ${transactionId}`} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', width: '100%', padding: '15px', background: '#25D366', color: 'white', textDecoration: 'none', borderRadius: '15px', fontWeight: 'bold' }}>
               <Whatsapp size={20} /> تأكيد عبر واتساب
             </a>
           </div>
@@ -134,9 +153,9 @@ const PlanPaymentPage = () => {
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
-          <button onClick={() => navigate(-1)} style={{ background: C.white, border: 'none', width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
+          <UIButton onClick={() => navigate(-1)} style={{ background: C.white, border: 'none', width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
             <ArrowRight size={20} color={C.primary} />
-          </button>
+          </UIButton>
           <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: '800', color: C.primary, margin: 0 }}>تأكيد الاشتراك والدفع</h1>
         </div>
 
@@ -150,7 +169,7 @@ const PlanPaymentPage = () => {
                 <Wallet2 color={C.gold} /> الخطوة 1: التحويل لإحدى المحافظ
               </h3>
               
-              <p style={{ fontSize: '14px', color: C.gray, marginBottom: '20px' }}>يرجى تحويل مبلغ الاشتراك <strong>({plan.basePrice} ر.ي)</strong> لأحد الحسابات التالية، ثم قم بإدخال رقم العملية في الأسفل:</p>
+              <p style={{ fontSize: '14px', color: C.gray, marginBottom: '20px' }}>يرجى تحويل مبلغ الاشتراك <strong>({plan.basePrice} ر.ي)</strong> لأحد الحسابات التالية، ثم قم بإدخال رقم مرجع العملية في الأسفل:</p>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {wallets.map(w => (
@@ -162,10 +181,10 @@ const PlanPaymentPage = () => {
                       <div style={{ fontSize: '12px', color: C.gray, marginBottom: '2px' }}>{w.name}</div>
                       <div style={{ fontSize: '18px', fontWeight: '800', color: C.primary, letterSpacing: '0.5px' }}>{w.number}</div>
                     </div>
-                    <button 
+                    <UIButton 
                       onClick={() => { navigator.clipboard.writeText(w.number); alert(`تم نسخ رقم ${w.name}`); }}
                       style={{ background: C.primary, color: 'white', border: 'none', padding: '8px 15px', borderRadius: '10px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >نسخ</button>
+                    >نسخ</UIButton>
                   </div>
                 ))}
               </div>
@@ -202,7 +221,7 @@ const PlanPaymentPage = () => {
                 </div>
 
                 <div style={{ marginBottom: '25px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '10px' }}>صورة سند التحويل (اختياري)</label>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '700', marginBottom: '10px' }}>📸 صورة سند التحويل (إلزامي) *</label>
                   <div 
                     onClick={() => document.getElementById('receiptInput').click()}
                     style={{ width: '100%', height: '150px', border: `2px dashed ${C.border}`, borderRadius: '15px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden', background: '#fcfcfc' }}
@@ -232,7 +251,7 @@ const PlanPaymentPage = () => {
                   />
                 </div>
 
-                <button 
+                <UIButton 
                   disabled={loading}
                   type="submit"
                   style={{ 
@@ -242,7 +261,7 @@ const PlanPaymentPage = () => {
                   }}
                 >
                   {loading ? 'جاري إرسال الطلب...' : 'تأكيد عملية الدفع الآن ✅'}
-                </button>
+                </UIButton>
               </form>
             </div>
           </div>
@@ -267,7 +286,7 @@ const PlanPaymentPage = () => {
             <div style={{ background: `${C.gold}10`, padding: '20px', borderRadius: '20px', border: `1px dashed ${C.gold}` }}>
               <h4 style={{ fontSize: '14px', fontWeight: 'bold', color: C.primary, margin: '0 0 10px' }}>💡 ملاحظة هامة:</h4>
               <p style={{ fontSize: '12px', color: C.text, margin: 0, lineHeight: '1.6' }}>
-                يرجى التأكد من الرقم والمبلغ قبل التحويل. في حال وجود أي مشكلة، يمكنك دائماً مراسلتنا عبر الواتساب برقم العملية واسم المتجر.
+                يرجى التأكد من الرقم والمبلغ قبل التحويل. في حال وجود أي مشكلة، يمكنك دائماً مراسلتنا عبر الواتساب برقم مرجع العملية واسم المتجر.
               </p>
             </div>
           </div>

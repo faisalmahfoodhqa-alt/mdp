@@ -1,0 +1,34 @@
+{
+  "name": "tawreeed-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "REST API for tawreeed marketplace (Express + MongoDB)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "dev:memory": "cross-env MONGODB_MEMORY_SERVER=1 nodemon src/server.js",
+    "ping-db": "node scripts/ping-db.js",
+    "ping-db:memory": "cross-env MONGODB_MEMORY_SERVER=1 node scripts/ping-db.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "express-validator": "^7.3.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.7.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "mongodb-memory-server": "^11.1.0",
+    "nodemon": "^3.1.7"
+  }
+}

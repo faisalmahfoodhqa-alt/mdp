@@ -1,0 +1,34 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 12px;
+  font-weight: var(--font-weight-bold, 700);
+}
+
+.neutral {
+  background: color-mix(in srgb, var(--color-gray-500, #6c757d) 14%, transparent);
+  color: var(--color-gray-500, #6c757d);
+}
+
+.success {
+  background: color-mix(in srgb, var(--color-success, #28a745) 14%, transparent);
+  color: var(--color-success, #28a745);
+}
+
+.danger {
+  background: color-mix(in srgb, var(--color-danger, #dc3545) 14%, transparent);
+  color: var(--color-danger, #dc3545);
+}
+
+.warning {
+  background: color-mix(in srgb, var(--color-warning, #fd7e14) 14%, transparent);
+  color: var(--color-warning, #fd7e14);
+}
+
+.info {
+  background: color-mix(in srgb, var(--color-info, #0d6efd) 14%, transparent);
+  color: var(--color-info, #0d6efd);
+}
